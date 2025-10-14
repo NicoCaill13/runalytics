@@ -10,24 +10,26 @@ export class StravaTokenGuard {
   ) {}
 
   async getFreshAccessToken(userId: string): Promise<string> {
-    const acc = await this.prisma.stravaAccount.findUnique({ where: { userId } });
-    if (!acc) throw new Error('Strava account not linked');
+    const u = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!u?.refreshToken) throw new Error('Strava non lié');
 
     const now = Date.now();
-    if (acc.expiresAt.getTime() - now > 60_000) {
-      return acc.accessToken; // >1 min restant → ok
+    if (u.expiresAt && u.expiresAt.getTime() - now > 60_000 && u.accessToken) {
+      return u.accessToken; // encore valide
     }
 
-    const refreshed = await this.oauth.refreshToken(acc.refreshToken);
-    await this.prisma.stravaAccount.update({
-      where: { userId },
+    const refreshed = await this.oauth.refreshToken(u.refreshToken);
+    const expiresAt = new Date(refreshed.expires_at * 1000);
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
       data: {
+        athleteId: refreshed.athlete.id, // safe
         accessToken: refreshed.access_token,
         refreshToken: refreshed.refresh_token,
-        expiresAt: new Date(refreshed.expires_at * 1000),
-        athleteId: refreshed.athlete.id,
+        expiresAt,
       },
     });
-    return refreshed.access_token;
+    return updated.accessToken!;
   }
 }

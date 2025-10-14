@@ -8,20 +8,16 @@ generator client {
 }
 
 model User {
-    id            String         @id @default(cuid())
-    email         String?        @unique
-    createdAt     DateTime       @default(now())
-    stravaAccount StravaAccount?
-    activities    Activity[]
-}
+    id           String    @id @default(cuid())
+    athleteId    Int?      @unique
+    userName     String?
+    accessToken  String?
+    refreshToken String?
+    expiresAt    DateTime?
+    createdAt    DateTime  @default(now())
+    updatedAt    DateTime  @updatedAt
 
-model StravaAccount {
-    userId       String   @id
-    athleteId    Int      @unique
-    accessToken  String
-    refreshToken String
-    expiresAt    DateTime
-    user         User     @relation(fields: [userId], references: [id])
+    activities Activity[]
 }
 
 model Activity {

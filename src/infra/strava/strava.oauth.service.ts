@@ -62,34 +62,32 @@ export class StravaOauthService {
   }
 
   async upsertAccount(parsed: StravaTokenResponse) {
+    const athleteId = parsed.athlete.id;
     const expiresAt = new Date(parsed.expires_at * 1000);
-    const email = parsed.athlete.email ?? undefined;
 
-    // Crée l'utilisateur s'il n'existe pas
-    const user = await this.prisma.user.upsert({
-      where: { email },
-      update: {},
-      create: { email },
-    });
+    const existing = await this.prisma.user.findUnique({ where: { athleteId } });
+    if (existing) {
+      await this.prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          accessToken: parsed.access_token,
+          refreshToken: parsed.refresh_token,
+          expiresAt,
+          userName: parsed.athlete.username ?? null,
+        },
+      });
+      return this.prisma.user.findUnique({ where: { id: existing.id } });
+    }
 
-    // Lie le compte Strava
-    await this.prisma.stravaAccount.upsert({
-      where: { userId: user.id },
-      update: {
-        athleteId: parsed.athlete.id,
+    // Créer un User lié Strava (sans email)
+    return this.prisma.user.create({
+      data: {
+        athleteId,
         accessToken: parsed.access_token,
         refreshToken: parsed.refresh_token,
         expiresAt,
-      },
-      create: {
-        userId: user.id,
-        athleteId: parsed.athlete.id,
-        accessToken: parsed.access_token,
-        refreshToken: parsed.refresh_token,
-        expiresAt,
+        userName: parsed.athlete.username ?? null,
       },
     });
-
-    return user;
   }
 }

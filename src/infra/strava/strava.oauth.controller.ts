@@ -8,7 +8,7 @@ export class StravaOauthController {
 
   @Get('login')
   login(@Res() res: Response) {
-    const state = crypto.randomUUID(); // à stocker en session/DB si nécessaire
+    const state = crypto.randomUUID();
     const url = this.oauth.buildAuthorizeUrl(state);
     return res.redirect(url);
   }
@@ -17,7 +17,6 @@ export class StravaOauthController {
   async callback(@Query('code') code: string, @Res() res: Response) {
     const token = await this.oauth.exchangeCodeForToken(code);
     await this.oauth.upsertAccount(token);
-    // Redirect vers UI (dashboard)
-    return res.redirect('/'); // adapter vers le front
+    return res.redirect('/');
   }
 }

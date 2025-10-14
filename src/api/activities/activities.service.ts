@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
 import { StravaService } from '@/infra/strava/strava.service';
+import { StravaTokenGuard } from '@/infra/strava/token.guard';
 import { mapStravaToDomain } from '@/shared/types/activity';
 
 @Injectable()
@@ -8,16 +9,16 @@ export class ActivitiesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly strava: StravaService,
+    private readonly tokenGuard: StravaTokenGuard,
   ) {}
 
   async syncUserActivities(userId: string) {
-    const account = await this.prisma.stravaAccount.findUnique({ where: { userId } });
-    if (!account) throw new NotFoundException('Strava account not linked');
-
-    // TODO: refresh token si expiré (via StravaOauthService)
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    const accessToken = await this.tokenGuard.getFreshAccessToken(userId);
 
     let saved = 0;
-    for await (const page of this.strava.iterateAllActivities(account.accessToken, 100, 10)) {
+    for await (const page of this.strava.iterateAllActivities(accessToken, 200, 10)) {
       for (const a of page) {
         const mapped = mapStravaToDomain(a);
         await this.prisma.activity.upsert({

@@ -3,6 +3,14 @@
 
 ---
 
+## Pour commencer
+
+```bash
+docker compose build
+docker compose up
+docker compose exec app npx prisma migrate dev -n init
+```
+
 ## 1. Vision produit
 
 Runlytics fusionne deux moteurs :
