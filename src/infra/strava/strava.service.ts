@@ -14,7 +14,9 @@ export class StravaService {
   /**
    * Récupère une page d'activités Strava de l'athlète (typée).
    */
-  async getAthleteActivities(accessToken: string, page = 1, perPage = 100): Promise<StravaActivity[]> {
+  async getAthleteActivities(accessToken: string, page = 1, perPage = 200, afterEpoch?: number): Promise<StravaActivity[]> {
+    const params: any = { per_page: perPage, page };
+    if (afterEpoch) params.after = afterEpoch;
     const url = `${this.baseUrl}/athlete/activities`;
 
     const obs = this.http.get<StravaActivitiesResponse>(url, {
