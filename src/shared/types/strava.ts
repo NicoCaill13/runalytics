@@ -1,6 +1,7 @@
 // Types minimaux pour /athlete/activities (Strava v3)
 
 export type SportType = 'Run' | 'TrailRun' | 'Hike' | 'Walk' | 'VirtualRun';
+export type HeartRateStatus = 'none' | 'partial' | 'ready';
 
 export interface StravaActivity {
   id: number;
