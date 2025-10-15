@@ -13,6 +13,10 @@ export interface Activity {
   avgPaceSecPerKm?: number;
 }
 
+export function isRunSport(sport: string) {
+  return sport === 'Run' || sport === 'TrailRun' || sport === 'VirtualRun';
+}
+
 export function mapStravaToDomain(a: import('./strava').StravaActivity): Activity {
   const paceSecPerKm = a.average_speed && a.average_speed > 0 ? 1000 / a.average_speed : undefined;
 

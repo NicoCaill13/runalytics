@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
 import { StravaService } from '@/infra/strava/strava.service';
 import { StravaTokenGuard } from '@/infra/strava/token.guard';
-import { mapStravaToDomain } from '@/shared/types/activity';
+import { isRunSport, mapStravaToDomain } from '@/shared/types/activity';
 
 @Injectable()
 export class ActivitiesService {
@@ -17,9 +17,16 @@ export class ActivitiesService {
     if (!user) throw new NotFoundException('User not found');
     const accessToken = await this.tokenGuard.getFreshAccessToken(userId);
 
+    const afterEpoch = user.lastSyncedAt ? Math.floor(user.lastSyncedAt.getTime() / 1000) : undefined;
+
     let saved = 0;
-    for await (const page of this.strava.iterateAllActivities(accessToken, 200, 10)) {
-      for (const a of page) {
+    let newest: Date | undefined = user.lastActivityAt ?? undefined;
+
+    for await (const page of this.strava.iterateAllActivities(accessToken, afterEpoch, 200, 200)) {
+      const runPage = page.filter((a) => isRunSport(a.sport_type));
+      if (!runPage.length) continue;
+
+      for (const a of runPage) {
         const mapped = mapStravaToDomain(a);
         await this.prisma.activity.upsert({
           where: { providerId: mapped.providerActivityId },
@@ -40,6 +47,8 @@ export class ActivitiesService {
           },
         });
         saved++;
+        const d = new Date(mapped.dateUtc);
+        if (!newest || d > newest) newest = d;
       }
     }
     return { userId, saved };

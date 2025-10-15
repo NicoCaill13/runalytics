@@ -15,9 +15,9 @@ export class StravaService {
    * Récupère une page d'activités Strava de l'athlète (typée).
    */
   async getAthleteActivities(accessToken: string, page = 1, perPage = 200, afterEpoch?: number): Promise<StravaActivity[]> {
-    const params: any = { per_page: perPage, page };
-    if (afterEpoch) params.after = afterEpoch;
     const url = `${this.baseUrl}/athlete/activities`;
+    const params: Record<string, number> = { per_page: perPage, page };
+    if (afterEpoch) params.after = afterEpoch;
 
     const obs = this.http.get<StravaActivitiesResponse>(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -31,9 +31,9 @@ export class StravaService {
   /**
    * Itérateur pratique pour paginer proprement jusqu'à épuisement des résultats.
    */
-  async *iterateAllActivities(accessToken: string, perPage = 100, maxPages = 50): AsyncGenerator<StravaActivity[]> {
+  async *iterateAllActivities(accessToken: string, afterEpoch?: number, perPage = 200, maxPages = 100): AsyncGenerator<StravaActivity[]> {
     for (let page = 1; page <= maxPages; page++) {
-      const chunk = await this.getAthleteActivities(accessToken, page, perPage);
+      const chunk = await this.getAthleteActivities(accessToken, page, perPage, afterEpoch);
       if (!chunk.length) break;
       yield chunk;
     }

@@ -14,8 +14,12 @@ model User {
     accessToken  String?
     refreshToken String?
     expiresAt    DateTime?
-    createdAt    DateTime  @default(now())
-    updatedAt    DateTime  @updatedAt
+
+    lastSyncedAt   DateTime?
+    lastActivityAt DateTime?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 
     activities Activity[]
 }

@@ -5,9 +5,9 @@ import { ActivitiesService } from './activities.service';
 export class ActivitiesController {
   constructor(private readonly svc: ActivitiesService) {}
 
-  // exemple: POST /activities/sync/:userId
-  @Post('sync/:userId')
-  sync(@Param('userId') userId: string) {
+  // POST /activities/sync-runs/:userId
+  @Post('sync-runs/:userId')
+  syncRuns(@Param('userId') userId: string) {
     return this.svc.syncUserActivities(userId);
   }
 }
