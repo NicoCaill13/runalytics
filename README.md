@@ -65,7 +65,7 @@ Chaque semaine, l’IA évalue la forme, détecte les risques, et ajuste automat
 | **Feature Engine** | Node workers (BullMQ) | Calcul ACWR, EF index, variances |
 | **ML Layer** | ML.js / TensorFlow.js | InjuryGuard + PaceMind |
 | **Storage** | PostgreSQL + MinIO | Data & modèles |
-| **Auth** | OAuth2 Strava / Garmin | Synchronisation activités |
+| **Auth** | OAuth2 Strava | Synchronisation activités |
 | **Infra** | Docker + GitHub Actions + Render | CI/CD MVP |
 | **Monitoring** | Sentry + Prometheus | Observabilité |
 
