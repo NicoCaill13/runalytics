@@ -8,12 +8,17 @@ generator client {
 }
 
 model User {
-    id           String    @id @default(cuid())
-    athleteId    Int?      @unique
+    id           String  @id @default(cuid())
+    athleteId    Int?    @unique
     userName     String?
     accessToken  String?
     refreshToken String?
-    expiresAt    DateTime?
+
+    hasHeartRateData  Boolean? @default(false)
+    heartRateCoverage Float?
+    heartRateStatus   String?
+
+    expiresAt DateTime?
 
     lastSyncedAt   DateTime?
     lastActivityAt DateTime?
@@ -21,7 +26,8 @@ model User {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    activities Activity[]
+    activities     Activity[]
+    WeeklyFeatures WeeklyFeatures[]
 }
 
 model Activity {
@@ -38,8 +44,36 @@ model Activity {
     maxHr       Int?
     avgCadSpm   Int?
     avgPaceSpKm Int?
+    load        Float?
     createdAt   DateTime @default(now())
     user        User     @relation(fields: [userId], references: [id])
 
     @@index([userId, dateUtc])
+}
+
+model WeeklyFeatures {
+    id         String   @id @default(cuid())
+    userId     String
+    year       Int // ex: 2025
+    weekNumber Int // ex: 2
+    weekStart  DateTime // Lundi 00:00:00 (UTC)
+
+    runsCount   Int
+    daysActive  Int
+    distanceKm  Float
+    movingTimeH Float
+    elevGainM   Int
+
+    loadWeek Float // Σ load
+    monotony Float? // mean(dayLoads)/std(dayLoads)
+    strain   Float? // loadWeek * monotony
+    acwr     Float? // loadWeek / mean(loadWeek des 4 sem précédentes)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    user User @relation(fields: [userId], references: [id])
+
+    @@unique([userId, year, weekNumber])
+    @@index([userId, weekStart])
 }
