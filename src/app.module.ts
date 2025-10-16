@@ -10,7 +10,7 @@ import { AlertsModule } from '@/api/analytics/alerts.module';
 import { ThresholdsModule } from '@/api/analytics/thresholds.module';
 import { SummaryModule } from '@/api/analytics/summary.module';
 import { CoachModule } from '@/api/coach/coach.module';
-import { MeModule } from '@/api/me/me.module';
+import { UserModule } from '@/api/user/user.module';
 
 @Module({
   imports: [
@@ -27,7 +27,7 @@ import { MeModule } from '@/api/me/me.module';
     ThresholdsModule,
     SummaryModule,
     CoachModule,
-    MeModule,
+    UserModule,
   ],
 })
 export class AppModule {}

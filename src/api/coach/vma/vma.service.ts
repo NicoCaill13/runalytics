@@ -1,14 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
 import { mpsToKph, kphToPaceStr } from '@/core/pace/pace-utils';
-import { VmaEstimateDto } from './vma.dto';
+import { VmaEstimateDto } from '@/shared/types/strava';
 
-interface VmaEstimate {
-  vmaMps: number;
-  vmaKph: number;
-  pacePerKm: string;
-  source: '10k_race' | '5k_race' | 'tempo' | 'best_20_30';
-  confidence: number; // 0..1
+function paceStrFromMps(mps: number) {
+  const kph = mpsToKph(mps);
+  return kphToPaceStr(kph);
 }
 
 @Injectable()
@@ -31,7 +28,17 @@ export class VmaService {
     return { vmaMps: vma, vmaKph: mpsToKph(vma), pacePerKm: kphToPaceStr(mpsToKph(vma)), source: 'tempo', confidence: 0.5 };
   }
 
-  async estimate(userId: string): Promise<VmaEstimateDto> {
+  private async fromStored(userId: string): Promise<VmaEstimateDto | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { vmaMps: true },
+    });
+    if (!user?.vmaMps) return null;
+    const v = user.vmaMps;
+    return { vmaMps: v, vmaKph: mpsToKph(v), pacePerKm: paceStrFromMps(v), source: 'stored', confidence: 1.0 };
+  }
+
+  async estimateFromActivities(userId: string): Promise<VmaEstimateDto> {
     const acts = await this.prisma.activity.findMany({
       where: { userId, sport: 'run' },
       select: { id: true, distanceM: true, movingTimeS: true, avgPaceSpKm: true, dateUtc: true },
@@ -68,8 +75,18 @@ export class VmaService {
     throw new Error('Not enough data for VMA estimate');
   }
 
-  async estimateAndPersist(userId: string): Promise<VmaEstimateDto> {
-    const est = await this.estimate(userId);
+  async currentOrEstimate(userId: string): Promise<VmaEstimateDto> {
+    const stored = await this.fromStored(userId);
+    if (stored) return stored;
+    return this.estimateFromActivities(userId);
+  }
+
+  async estimateAndPersist(userId: string, force = false): Promise<VmaEstimateDto> {
+    if (!force) {
+      const stored = await this.fromStored(userId);
+      if (stored) return stored;
+    }
+    const est = await this.estimateFromActivities(userId);
     await this.prisma.user.update({
       where: { id: userId },
       data: { vmaMps: est.vmaMps, vmaUpdatedAt: new Date() },

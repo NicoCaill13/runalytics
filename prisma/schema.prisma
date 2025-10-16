@@ -45,6 +45,7 @@ model User {
     hrUpdatedAt DateTime?
 
     vmaMps       Float?
+    vmaKph       Float?
     vmaUpdatedAt DateTime?
 
     // Profil coureur & coach
