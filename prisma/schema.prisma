@@ -64,10 +64,12 @@ model WeeklyFeatures {
     movingTimeH Float
     elevGainM   Int
 
-    loadWeek Float // Σ load
-    monotony Float? // mean(dayLoads)/std(dayLoads)
-    strain   Float? // loadWeek * monotony
-    acwr     Float? // loadWeek / mean(loadWeek des 4 sem précédentes)
+    loadWeek   Float // Σ load
+    monotony   Float? // mean(dayLoads)/std(dayLoads)
+    strain     Float? // loadWeek * monotony
+    acwr       Float? // loadWeek / mean(loadWeek des 4 sem précédentes)
+    maxDayLoad Float? // AU
+    max48hLoad Float?
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
