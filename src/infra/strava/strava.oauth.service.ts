@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { StravaTokenResponseSchema, StravaTokenResponse } from './strava.oauth.dto';
 import { PrismaService } from '@/infra/db/prisma.service';
+import { StravaService } from './strava.service';
 
 @Injectable()
 export class StravaOauthService {
@@ -13,6 +14,7 @@ export class StravaOauthService {
     private readonly http: HttpService,
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly strava: StravaService,
   ) {}
 
   buildAuthorizeUrl(state: string) {
@@ -64,6 +66,7 @@ export class StravaOauthService {
   async upsertAccount(parsed: StravaTokenResponse) {
     const athleteId = parsed.athlete.id;
     const expiresAt = new Date(parsed.expires_at * 1000);
+    const athlete = await this.strava.getLoggedInAthlete(parsed.access_token);
 
     const existing = await this.prisma.user.findUnique({ where: { athleteId } });
     if (existing) {
@@ -74,6 +77,15 @@ export class StravaOauthService {
           refreshToken: parsed.refresh_token,
           expiresAt,
           userName: parsed.athlete.username ?? null,
+          sex: athlete.sex ?? undefined,
+          profile: athlete.profile ?? undefined,
+          profileMedium: athlete.profile_medium ?? undefined,
+          city: athlete.city ?? undefined,
+          state: athlete.state ?? undefined,
+          country: athlete.country ?? undefined,
+          measurementPref: athlete.measurement_preference ?? undefined,
+          isPremium: athlete.premium ?? undefined,
+          fcrepos: athlete.sex === 'F' ? 60 : 55,
         },
       });
       return this.prisma.user.findUnique({ where: { id: existing.id } });
@@ -87,6 +99,15 @@ export class StravaOauthService {
         refreshToken: parsed.refresh_token,
         expiresAt,
         userName: parsed.athlete.username ?? null,
+        sex: athlete.sex ?? undefined,
+        profile: athlete.profile ?? undefined,
+        profileMedium: athlete.profile_medium ?? undefined,
+        city: athlete.city ?? undefined,
+        state: athlete.state ?? undefined,
+        country: athlete.country ?? undefined,
+        measurementPref: athlete.measurement_preference ?? undefined,
+        isPremium: athlete.premium ?? undefined,
+        fcrepos: athlete.sex === 'F' ? 60 : 55,
       },
     });
   }

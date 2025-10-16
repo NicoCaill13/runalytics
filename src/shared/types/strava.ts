@@ -24,3 +24,8 @@ export interface StravaActivity {
 }
 
 export type StravaActivitiesResponse = StravaActivity[];
+
+export type Zones = Record<'z1' | 'z2' | 'z3' | 'z4' | 'z5', { min: number; max: number }>;
+export type CoachPersonality = 'COOL' | 'MODERATE' | 'COMPET';
+export type Sex = 'M' | 'F' | undefined;
+export type VmaSource = '10k_race' | '5k_race' | 'tempo' | 'best_20_30';

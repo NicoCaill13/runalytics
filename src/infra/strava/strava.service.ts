@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { AxiosResponse } from 'axios';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, lastValueFrom } from 'rxjs';
 import { StravaActivity, StravaActivitiesResponse } from '@/shared/types/strava';
 
 @Injectable()
@@ -26,6 +26,30 @@ export class StravaService {
 
     const { data }: AxiosResponse<StravaActivitiesResponse> = await firstValueFrom(obs);
     return data;
+  }
+
+  // src/infra/strava/strava.service.ts
+  async getLoggedInAthlete(accessToken: string) {
+    const url = `${this.baseUrl}/athlete`;
+    const res = await lastValueFrom(
+      this.http.get(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }),
+    );
+    return res.data as {
+      id: number;
+      username: string | null;
+      firstname: string | null;
+      lastname: string | null;
+      city?: string | null;
+      state?: string | null;
+      country?: string | null;
+      sex?: 'M' | 'F' | null;
+      premium?: boolean;
+      profile?: string | null;
+      profile_medium?: string | null;
+      measurement_preference?: 'feet' | 'meters';
+    };
   }
 
   /**
