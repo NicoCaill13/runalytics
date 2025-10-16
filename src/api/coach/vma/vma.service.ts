@@ -33,7 +33,7 @@ export class VmaService {
 
   async estimate(userId: string): Promise<VmaEstimateDto> {
     const acts = await this.prisma.activity.findMany({
-      where: { userId, sport: 'Run' },
+      where: { userId, sport: 'run' },
       select: { id: true, distanceM: true, movingTimeS: true, avgPaceSpKm: true, dateUtc: true },
       orderBy: { dateUtc: 'desc' },
       take: 400,
