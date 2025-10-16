@@ -36,7 +36,10 @@ export class WeeklyFeaturesService {
       elevGainM: number;
       loadWeek: number;
       dayLoads: Record<number, number>;
+      maxDayLoad?: number;
+      max48hLoad?: number;
     };
+
     const weeks = new Map<string, WeekAgg>();
 
     for (const a of acts) {
@@ -74,6 +77,11 @@ export class WeeklyFeaturesService {
     const ordered = [...weeks.values()].sort((a, b) => +a.weekStart - +b.weekStart);
     for (const w of ordered) {
       w.daysActive = Object.keys(w.dayLoads).length;
+      const loads = [1, 2, 3, 4, 5, 6, 7].map((d) => w.dayLoads[d] ?? 0);
+      const maxDay = Math.max(...loads);
+      const max48h = Math.max(...[0, 1, 2, 3, 4, 5].map((i) => (loads[i] ?? 0) + (loads[i + 1] ?? 0)));
+      w.maxDayLoad = +maxDay.toFixed(1);
+      w.max48hLoad = +max48h.toFixed(1);
     }
 
     // 4) ACWR nécessite historique des 4 semaines précédentes
@@ -81,11 +89,11 @@ export class WeeklyFeaturesService {
       const mono = monotony(Object.values(w.dayLoads));
       const str = strain(w.loadWeek, mono);
 
-      // chronic = moyenne des 4 semaines précédentes
+      // ACWR plus robuste (≥2 semaines actives en référence, et semaine courante ≥2 jours actifs)
       const prev = arr.slice(Math.max(0, idx - 4), idx);
       const validPrev = prev.filter((p) => p.daysActive >= 2);
       const chronic = validPrev.length >= 2 ? validPrev.reduce((s, p) => s + p.loadWeek, 0) / validPrev.length : null;
-      const acwr = chronic && chronic > 0 ? Math.min(2.5, w.loadWeek / chronic) : null;
+      const acwr = chronic && chronic > 0 && w.daysActive >= 2 ? Math.min(2.5, w.loadWeek / chronic) : null;
 
       return { ...w, monotony: mono ?? null, strain: str ?? null, acwr };
     });
@@ -105,6 +113,8 @@ export class WeeklyFeaturesService {
           monotony: w.monotony ? +w.monotony.toFixed(2) : null,
           strain: w.strain ? +w.strain.toFixed(1) : null,
           acwr: w.acwr ? +w.acwr.toFixed(2) : null,
+          maxDayLoad: w.maxDayLoad ?? null,
+          max48hLoad: w.max48hLoad ?? null,
         },
         create: {
           userId,
@@ -120,6 +130,8 @@ export class WeeklyFeaturesService {
           monotony: w.monotony ? +w.monotony.toFixed(2) : null,
           strain: w.strain ? +w.strain.toFixed(1) : null,
           acwr: w.acwr ? +w.acwr.toFixed(2) : null,
+          maxDayLoad: w.maxDayLoad ?? null,
+          max48hLoad: w.max48hLoad ?? null,
         },
       });
     }
