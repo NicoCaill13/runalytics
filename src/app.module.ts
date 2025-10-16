@@ -9,6 +9,8 @@ import { WeeklyFeaturesModule } from '@/api/analytics/weekly-features.module';
 import { AlertsModule } from '@/api/analytics/alerts.module';
 import { ThresholdsModule } from '@/api/analytics/thresholds.module';
 import { SummaryModule } from '@/api/analytics/summary.module';
+import { CoachModule } from '@/api/coach/coach.module';
+import { MeModule } from '@/api/me/me.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { SummaryModule } from '@/api/analytics/summary.module';
     AlertsModule,
     ThresholdsModule,
     SummaryModule,
+    CoachModule,
+    MeModule,
   ],
 })
 export class AppModule {}

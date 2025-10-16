@@ -7,6 +7,18 @@ generator client {
     provider = "prisma-client-js"
 }
 
+enum RunnerType {
+    PLEASURE
+    PROGRESS
+    COMPETITOR
+}
+
+enum CoachPersonality {
+    COOL
+    MODERATE
+    COMPET
+}
+
 model User {
     id           String  @id @default(cuid())
     athleteId    Int?    @unique
@@ -17,6 +29,29 @@ model User {
     hasHeartRateData  Boolean? @default(false)
     heartRateCoverage Float?
     heartRateStatus   String?
+
+    sex             String? // 'M' | 'F'
+    profile         String? // large
+    profileMedium   String?
+    city            String?
+    state           String?
+    country         String?
+    measurementPref String? // 'meters' | 'feet'
+    isPremium       Boolean? // Strava Summit/Premium
+
+    fcm         Int?
+    fcrepos     Int?
+    zones       Json?
+    hrUpdatedAt DateTime?
+
+    vmaMps       Float?
+    vmaUpdatedAt DateTime?
+
+    // Profil coureur & coach
+    runnerType       RunnerType?
+    coachPersonality CoachPersonality @default(MODERATE)
+
+    age Int?
 
     expiresAt DateTime?
 
@@ -44,6 +79,7 @@ model Activity {
     maxHr       Int?
     avgCadSpm   Int?
     avgPaceSpKm Int?
+    hrZone      String?
     load        Float?
     createdAt   DateTime @default(now())
     user        User     @relation(fields: [userId], references: [id])
