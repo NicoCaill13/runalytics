@@ -20,7 +20,7 @@ export class StravaOauthService {
   buildAuthorizeUrl(state: string) {
     const clientId = this.config.get<string>('strava.clientId')!;
     const redirectUri = this.config.get<string>('strava.redirectUri')!;
-    const scope = 'read,activity:read_all'; // élargir si besoin
+    const scope = 'read,activity:read_all';
 
     const url =
       `${this.oauthUrl}/authorize?client_id=${clientId}` +

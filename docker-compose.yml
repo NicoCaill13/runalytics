@@ -42,7 +42,6 @@ services:
       - "3000:3000"
     volumes:
       - ./:/usr/src/app
-      # volume anonyme pour ne pas écraser node_modules par le bind mount
       - /usr/src/app/node_modules
     command: sh -c "npx prisma generate && npm run start:dev"
     networks:

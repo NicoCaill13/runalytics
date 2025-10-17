@@ -5,9 +5,10 @@ import { StravaOauthService } from './strava.oauth.service';
 import { StravaOauthController } from './strava.oauth.controller';
 import { StravaService } from './strava.service';
 import { StravaTokenGuard } from './token.guard';
+import { AuthModule } from '@/infra/auth/auth.module';
 
 @Module({
-  imports: [HttpModule, PrismaModule],
+  imports: [HttpModule, PrismaModule, AuthModule],
   controllers: [StravaOauthController],
   providers: [StravaOauthService, StravaService, StravaTokenGuard],
   exports: [StravaOauthService, StravaService, StravaTokenGuard],
