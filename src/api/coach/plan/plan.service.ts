@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
-import { percentVmaToKph, kphToPaceStr } from '@/core/pace/pace-utils';
+import { percentVmaToKph, kphToPaceStr } from '@/shared/types/strava';
 
 type Session = { type: 'EF' | 'Tempo' | 'SL' | 'VO2'; title: string; pace: string };
 

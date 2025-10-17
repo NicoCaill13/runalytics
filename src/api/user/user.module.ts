@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '@/infra/db/prisma.module';
 import { ThresholdsModule } from '@/api/analytics/thresholds.module';
-import { MeController } from './me.controller';
-import { MeService } from './me.service';
+import { UserController } from './user.controller';
+import { UserService } from './user.service';
 
 @Module({
   imports: [PrismaModule, ThresholdsModule],
-  controllers: [MeController],
-  providers: [MeService],
+  controllers: [UserController],
+  providers: [UserService],
 })
-export class MeModule {}
+export class UserModule {}

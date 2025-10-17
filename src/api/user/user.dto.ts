@@ -1,4 +1,4 @@
-export interface MeResponseDto {
+export interface UserResponseDto {
   user: {
     id: string;
     username: string | null;

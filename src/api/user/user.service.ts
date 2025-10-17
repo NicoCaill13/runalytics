@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
 import { ThresholdsService } from '@/api/analytics/thresholds.service';
+import { UserResponseDto } from './user.dto';
+import { kphToMps, mpsToKph } from '@/shared/types/strava';
 
 function kphFromMps(mps?: number | null) {
   return mps ? +(mps * 3.6).toFixed(2) : null;
@@ -16,13 +18,13 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 const normMid = (x: number, min: number, max: number) => clamp01(1 - Math.abs(x - (min + max) / 2) / ((max - min) / 2));
 
 @Injectable()
-export class MeService {
+export class UserService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly thresholds: ThresholdsService,
   ) {}
 
-  private buildInsights(avg: { acwr?: number | null; monotony?: number | null }, t?: MeResponseDto['thresholds']): string[] {
+  private buildInsights(avg: { acwr?: number | null; monotony?: number | null }, t?: UserResponseDto['thresholds']): string[] {
     const out: string[] = [];
     if ((avg.monotony ?? 0) > 2.5) out.push('Monotonie élevée récemment : varie davantage (EF/Tempo/SL).');
     if ((avg.acwr ?? 0) > 1.3) out.push('Charge en hausse rapide (ACWR) : prévois une semaine plus légère.');
@@ -30,7 +32,7 @@ export class MeService {
     return out.slice(0, 3);
   }
 
-  async getByUserId(userId: string): Promise<MeResponseDto> {
+  async getByUserId(userId: string): Promise<UserResponseDto> {
     const [user, lastWeek, th] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
@@ -62,7 +64,7 @@ export class MeService {
 
     if (!user) throw new Error('User not found');
 
-    const thresholdsDto: MeResponseDto['thresholds'] = th
+    const thresholdsDto: UserResponseDto['thresholds'] = th
       ? {
           loadWeek: { p50: th.loadWeek.p50, p75: th.loadWeek.p75 },
           acwr: { p50: th.acwr.p50, p75: th.acwr.p75 },
@@ -83,7 +85,7 @@ export class MeService {
       scoreGlobal = Math.round((loadScore * 0.4 + acwrScore * 0.4 + monoScore * 0.2) * 100);
     }
 
-    const resp: MeResponseDto = {
+    const resp: UserResponseDto = {
       user: {
         id: user.id,
         username: user.userName ?? null,
@@ -132,5 +134,45 @@ export class MeService {
 
     return resp;
   }
+
+  async updateUserMetrics(
+    userId: string,
+    data: {
+      age?: number;
+      fcm?: number;
+      fcrepos?: number;
+      vmaMps?: number;
+      vmaKph?: number;
+    },
+  ) {
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(data.age !== undefined && { age: data.age }),
+        ...(data.fcm !== undefined && { fcm: data.fcm }),
+        ...(data.fcrepos !== undefined && { fcrepos: data.fcrepos }),
+        ...(data.vmaMps !== undefined && {
+          vmaMps: data.vmaMps,
+          vmaKph: mpsToKph(data.vmaMps),
+          vmaUpdatedAt: new Date(),
+        }),
+        ...(data.vmaKph !== undefined && {
+          vmaKph: data.vmaKph,
+          vmaMps: kphToMps(data.vmaKph),
+          vmaUpdatedAt: new Date(),
+        }),
+      },
+    });
+    return {
+      message: 'Profil mis à jour avec succès',
+      updatedFields: Object.keys(data),
+      user: {
+        id: updated.id,
+        age: updated.age,
+        fcm: updated.fcm,
+        fcrepos: updated.fcrepos,
+        vmaKph: updated.vmaKph,
+      },
+    };
+  }
 }
-export type MeResponseDto = import('./me.dto').MeResponseDto;
