@@ -42,3 +42,12 @@ export const kphToMps = (kph: number) => kph / 3.6;
 export const mpsToKph = (mps: number) => mps * 3.6;
 export const mphToMps = (mph: number) => mph * 0.44704;
 export const mpsToMph = (mps: number) => mps / 0.44704;
+export const kphToPaceStr = (kph: number): string => {
+  if (!kph) return '-';
+  const sPerKm = Math.round(3600 / kph);
+  const m = Math.floor(sPerKm / 60);
+  const s = (sPerKm % 60).toString().padStart(2, '0');
+  return `${m}:${s}/km`;
+};
+
+export const percentVmaToKph = (percent: number, vmaMps: number): number => mpsToKph(vmaMps * percent);

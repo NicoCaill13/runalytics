@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
 import { ThresholdsService } from '@/api/analytics/thresholds.service';
 import { UserResponseDto } from './user.dto';
+import { kphToMps, mpsToKph } from '@/shared/types/strava';
 
 function kphFromMps(mps?: number | null) {
   return mps ? +(mps * 3.6).toFixed(2) : null;
@@ -141,6 +142,7 @@ export class UserService {
       fcm?: number;
       fcrepos?: number;
       vmaMps?: number;
+      vmaKph?: number;
     },
   ) {
     const updated = await this.prisma.user.update({
@@ -151,6 +153,12 @@ export class UserService {
         ...(data.fcrepos !== undefined && { fcrepos: data.fcrepos }),
         ...(data.vmaMps !== undefined && {
           vmaMps: data.vmaMps,
+          vmaKph: mpsToKph(data.vmaMps),
+          vmaUpdatedAt: new Date(),
+        }),
+        ...(data.vmaKph !== undefined && {
+          vmaKph: data.vmaKph,
+          vmaMps: kphToMps(data.vmaKph),
           vmaUpdatedAt: new Date(),
         }),
       },
@@ -163,7 +171,7 @@ export class UserService {
         age: updated.age,
         fcm: updated.fcm,
         fcrepos: updated.fcrepos,
-        vmaKph: updated.vmaMps ? +(updated.vmaMps * 3.6).toFixed(2) : null,
+        vmaKph: updated.vmaKph,
       },
     };
   }

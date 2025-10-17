@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
-import { mpsToKph, kphToPaceStr } from '@/core/pace/pace-utils';
-import { VmaEstimateDto } from '@/shared/types/strava';
+import { VmaEstimateDto, mpsToKph, kphToPaceStr } from '@/shared/types/strava';
 
 function paceStrFromMps(mps: number) {
   const kph = mpsToKph(mps);
@@ -89,7 +88,7 @@ export class VmaService {
     const est = await this.estimateFromActivities(userId);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { vmaMps: est.vmaMps, vmaUpdatedAt: new Date() },
+      data: { vmaMps: est.vmaMps, vmaUpdatedAt: new Date(), vmaKph: mpsToKph(est.vmaMps) },
     });
     return est;
   }
