@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
 import { formatMessage } from '@/core/coach/coach-personality';
 
@@ -10,11 +10,11 @@ export class AnalysisService {
     const [user, act] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: userId } }),
       this.prisma.activity.findFirst({
-        where: { userId, sport: 'Run' },
+        where: { userId, sport: 'run' },
         orderBy: { dateUtc: 'desc' },
       }),
     ]);
-    if (!user || !act) throw new Error('No data');
+    if (!user || !act) throw new BadRequestException('No data');
 
     // Type guess: by hrZone or %VMA
     let typeGuess: 'EF' | 'Tempo' | 'VO2' | 'SL' = 'EF';

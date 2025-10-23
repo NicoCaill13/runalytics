@@ -21,11 +21,12 @@ export class StravaOauthService {
     const clientId = this.config.get<string>('strava.clientId')!;
     const redirectUri = this.config.get<string>('strava.redirectUri')!;
     const scope = 'read,activity:read_all';
+    const approval_prompt = 'auto';
 
     const url =
       `${this.oauthUrl}/authorize?client_id=${clientId}` +
       `&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
+      `&scope=${encodeURIComponent(scope)}&approval_prompt=${approval_prompt}&state=${encodeURIComponent(state)}`;
 
     return url;
   }
@@ -85,12 +86,10 @@ export class StravaOauthService {
           country: athlete.country ?? undefined,
           measurementPref: athlete.measurement_preference ?? undefined,
           isPremium: athlete.premium ?? undefined,
-          fcrepos: athlete.sex === 'F' ? 60 : 55,
         },
       });
       return this.prisma.user.findUnique({ where: { id: existing.id } });
     }
-
     // Créer un User lié Strava (sans email)
     return this.prisma.user.create({
       data: {
@@ -107,7 +106,6 @@ export class StravaOauthService {
         country: athlete.country ?? undefined,
         measurementPref: athlete.measurement_preference ?? undefined,
         isPremium: athlete.premium ?? undefined,
-        fcrepos: athlete.sex === 'F' ? 60 : 55,
       },
     });
   }

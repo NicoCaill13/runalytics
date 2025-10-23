@@ -1,5 +1,5 @@
-import { Activity } from '@/shared/types/activity';
-import { HeartRateStatus } from '@/shared/types/strava';
+import { Activity } from '@/types/activity';
+import { HeartRateStatus } from '@/types/strava';
 
 interface LoadContext {
   heartRateStatus: HeartRateStatus;

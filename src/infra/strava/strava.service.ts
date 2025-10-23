@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { AxiosResponse } from 'axios';
 import { firstValueFrom, lastValueFrom } from 'rxjs';
-import { StravaActivity, StravaActivitiesResponse } from '@/shared/types/strava';
+import { StravaActivity, StravaActivitiesResponse } from '@/types/strava';
 
 @Injectable()
 export class StravaService {
@@ -21,7 +21,11 @@ export class StravaService {
 
     const obs = this.http.get<StravaActivitiesResponse>(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
-      params: { per_page: perPage, page },
+      params: {
+        after: afterEpoch,
+        page,
+        per_page: perPage,
+      },
     });
 
     const { data }: AxiosResponse<StravaActivitiesResponse> = await firstValueFrom(obs);
@@ -60,6 +64,20 @@ export class StravaService {
       const chunk = await this.getAthleteActivities(accessToken, page, perPage, afterEpoch);
       if (!chunk.length) break;
       yield chunk;
+    }
+  }
+
+  async getStreamsActivities(accessToken: string, activityID: number) {
+    try {
+      const url = `${this.baseUrl}/activities/${activityID}/streams?keys=time,distance,altitude,heartrate&series_type=distance&resolution=high&key_by_type=true`;
+      const obs = this.http.get(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      const { data } = await firstValueFrom(obs);
+      return data;
+    } catch (error) {
+      throw new BadRequestException(error.message);
     }
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
-import { percentVmaToKph, kphToPaceStr } from '@/shared/types/strava';
+import { percentVmaToKph, kphToPaceStr } from '@/types/strava';
 
 type Session = { type: 'EF' | 'Tempo' | 'SL' | 'VO2'; title: string; pace: string };
 
@@ -41,11 +41,12 @@ export class PlanService {
     ];
   }
 
-  async planForUser(userId: string) {
-    const u = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!u?.vmaMps) throw new Error('VMA not set. Run /coach/vma/estimate/:userId first.');
-    const type = u.runnerType ?? 'PROGRESS';
-    const sessions = this.buildSessions(type, u.vmaMps);
-    return { week: new Date().toISOString().slice(0, 10), runnerType: type, vmaMps: u.vmaMps, sessions };
+  planForUser(userId: string) {
+    // const u = await this.prisma.user.findUnique({ where: { id: userId } });
+    // if (!u?.vmaMps) throw new Error('VMA not set. Run /coach/vma/estimate/:userId first.');
+    // const type = u.runnerType ?? 'PROGRESS';
+    // const sessions = this.buildSessions(type, u.vmaMps);
+    // return { week: new Date().toISOString().slice(0, 10), runnerType: type, vmaMps: u.vmaMps, sessions };
+    return { toto: 'ttoo' };
   }
 }

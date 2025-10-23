@@ -1,4 +1,4 @@
-import { CoachPersonality } from '@/shared/types/strava';
+import { CoachPersonality } from '@/types/strava';
 
 export function formatMessage(p: CoachPersonality, base: string): string {
   if (p === 'COOL') {

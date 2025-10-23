@@ -1,4 +1,4 @@
-// Types minimaux pour /athlete/activities (Strava v3)
+import { Prisma } from '@prisma/client';
 
 export type SportType = 'Run' | 'TrailRun' | 'Hike' | 'Walk' | 'VirtualRun';
 export type HeartRateStatus = 'none' | 'partial' | 'ready';
@@ -28,14 +28,17 @@ export type StravaActivitiesResponse = StravaActivity[];
 export type Zones = Record<'z1' | 'z2' | 'z3' | 'z4' | 'z5', { min: number; max: number }>;
 export type CoachPersonality = 'COOL' | 'MODERATE' | 'COMPET';
 export type Sex = 'M' | 'F' | undefined;
-export type VmaSource = '10k_race' | '5k_race' | 'tempo' | 'best_20_30' | 'stored';
+export type VmaSource = 'ESTIMATED' | 'USER';
 
 export interface VmaEstimateDto {
   vmaMps: number;
   vmaKph: number;
   pacePerKm: string;
   source: VmaSource;
-  confidence: number; // 0..1
+  confidence: number;
+  runsCount: number;
+  firstRun: any;
+  lastRun: any;
 }
 
 export const kphToMps = (kph: number) => kph / 3.6;
@@ -51,3 +54,39 @@ export const kphToPaceStr = (kph: number): string => {
 };
 
 export const percentVmaToKph = (percent: number, vmaMps: number): number => mpsToKph(vmaMps * percent);
+
+export type Sample = {
+  t: number; // timestamp (ms since epoch) ou offset (s)
+  dist: number; // distance cumulée (m)
+  elev?: number; // altitude (m)
+  hr?: number; // bpm
+  cadence?: number; // spm
+  gradeAdjSpeed?: number; // m/s, si déjà calculé (GAP)
+};
+
+export type Run = {
+  id: string;
+  startDate: Date;
+  samples: Sample[]; // échantillons triés par t
+};
+
+export type VMAOpts = {
+  windowMinSec?: number; // 180 par défaut
+  windowMaxSec?: number; // 360 par défaut
+  useGAP?: boolean; // vrai si tu as une GAP fiable
+  fcm?: number; // FC max pour filtrer HR
+  hrPctMin?: number; // 0.92 -> 92%
+  cadenceMin?: number; // 160 spm
+};
+
+export type ARBRow = {
+  activity: { dateUtc: Date };
+  startOffsetS360: number | null;
+  endOffsetS360: number | null;
+  speedMps360: Prisma.Decimal | null;
+  startOffsetS720: number | null;
+  endOffsetS720: number | null;
+  speedMps720: Prisma.Decimal | null;
+};
+
+export const decToNum = (d: Prisma.Decimal | null): number | null => (d === null || d === undefined ? null : Number(d));

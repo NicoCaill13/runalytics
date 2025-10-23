@@ -1,4 +1,4 @@
-import { Zones } from '@/shared/types/strava';
+import { Zones } from '@/types/strava';
 
 export function computeHrZones(fcm: number, fcr: number): Zones {
   const res = fcm - fcr;

@@ -19,6 +19,33 @@ enum CoachPersonality {
     COMPET
 }
 
+enum ValueSource {
+    ESTIMATED
+    USER
+}
+
+enum MetricSource {
+    VMA
+    FC_REPOS
+    FC_MAX
+    FC_RESERVE
+    HRR_ZONES
+    VMA_ZONES
+}
+
+enum ActivityType {
+    EF
+    EA
+    SEUIL
+    VMA
+    INDOOR
+}
+
+enum IntervalRun {
+    DEMICOOPER
+    COOPER
+}
+
 model User {
     id           String  @id @default(cuid())
     athleteId    Int?    @unique
@@ -39,15 +66,6 @@ model User {
     measurementPref String? // 'meters' | 'feet'
     isPremium       Boolean? // Strava Summit/Premium
 
-    fcm         Int?
-    fcrepos     Int?
-    zones       Json?
-    hrUpdatedAt DateTime?
-
-    vmaMps       Float?
-    vmaKph       Float?
-    vmaUpdatedAt DateTime?
-
     // Profil coureur & coach
     runnerType       RunnerType?
     coachPersonality CoachPersonality @default(MODERATE)
@@ -64,28 +82,84 @@ model User {
 
     activities     Activity[]
     WeeklyFeatures WeeklyFeatures[]
+    PhysioHistory  PhysioHistory[]
+}
+
+model PhysioHistory {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    metric MetricSource
+    value  Decimal
+    source ValueSource
+
+    windowStart DateTime?
+    windowEnd   DateTime?
+    runsCount   Int?
+    note        String?
+    payload     Json?
+
+    createdAt DateTime @default(now())
+
+    @@index([userId, metric, createdAt])
 }
 
 model Activity {
-    id          String   @id @default(cuid())
-    userId      String
-    providerId  String   @unique // id Strava
-    dateUtc     DateTime
-    dateLocal   DateTime
-    distanceM   Int
-    movingTimeS Int
-    elevGainM   Int
-    sport       String
-    avgHr       Int?
-    maxHr       Int?
-    avgCadSpm   Int?
-    avgPaceSpKm Int?
-    hrZone      String?
-    load        Float?
-    createdAt   DateTime @default(now())
-    user        User     @relation(fields: [userId], references: [id])
+    id                  String                @id @default(cuid())
+    userId              String
+    providerId          String                @unique // id Strava
+    dateUtc             DateTime
+    dateLocal           DateTime
+    distanceM           Int
+    movingTimeS         Int
+    elevGainM           Int
+    sport               String
+    avgHr               Int?
+    maxHr               Int?
+    avgCadSpm           Int?
+    avgPaceSpKm         Int?
+    hrZone              String?
+    load                Float?
+    type                ActivityType?
+    createdAt           DateTime              @default(now())
+    user                User                  @relation(fields: [userId], references: [id])
+    ActivityRollingBest ActivityRollingBest[]
 
     @@index([userId, dateUtc])
+}
+
+model ActivityRollingBest {
+    id String @id @default(cuid())
+
+    // relations
+    activityId String
+    activity   Activity @relation(fields: [activityId], references: [providerId], onDelete: Cascade)
+    userId     String
+
+    // Fenêtre 360 s (6')
+    startOffsetS360 Int?
+    endOffsetS360   Int?
+    distanceM360    Int?
+    speedMps360     Decimal?
+    avgHr360        Int?
+    dPlusM360       Int?
+
+    // Fenêtre 720 s (12')
+    startOffsetS720 Int?
+    endOffsetS720   Int?
+    distanceM720    Int?
+    speedMps720     Decimal?
+    avgHr720        Int?
+    dPlusM720       Int?
+
+    averageSpeedMps Decimal?
+    averageSpeedKmh Decimal?
+
+    createdAt DateTime @default(now())
+
+    @@index([userId])
+    @@index([activityId])
 }
 
 model WeeklyFeatures {
