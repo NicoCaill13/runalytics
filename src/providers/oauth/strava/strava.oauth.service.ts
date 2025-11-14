@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { StravaTokenResponseSchema, StravaTokenResponse } from './strava.oauth.dto';
 import { StravaService } from '../../../infra/strava/strava.service';
 import { ProviderAccountService } from '@/api/providerAccount/providerAccount.service';
+import { AuthService } from '@/infra/auth/auth.service';
 
 @Injectable()
 export class StravaOauthService {
@@ -15,9 +16,10 @@ export class StravaOauthService {
     private readonly config: ConfigService,
     private readonly strava: StravaService,
     private readonly provider: ProviderAccountService,
+    private readonly auth: AuthService,
   ) { }
 
-  buildAuthorizeUrl(state: string) {
+  private buildAuthorizeUrl(state: string) {
     const clientId = this.config.get<string>('strava.clientId')!;
     const redirectUri = this.config.get<string>('strava.redirectUri')!;
     const scope = 'read,activity:read_all';
@@ -31,7 +33,7 @@ export class StravaOauthService {
     return url;
   }
 
-  async exchangeCodeForToken(code: string): Promise<StravaTokenResponse> {
+  private async exchangeCodeForToken(code: string): Promise<StravaTokenResponse> {
     const clientId = this.config.get<string>('strava.clientId')!;
     const clientSecret = this.config.get<string>('strava.clientSecret')!;
 
@@ -46,6 +48,13 @@ export class StravaOauthService {
 
     const parsed = StravaTokenResponseSchema.parse(data);
     return parsed;
+  }
+
+  private async upsertProviderAccount(parsed: StravaTokenResponse, payload) {
+    const athlete = await this.strava.getLoggedInAthlete(parsed.access_token);
+    const provider = 'STRAVA' as const;
+
+    return this.provider.upsertProviderAccount(parsed, provider, athlete, payload);
   }
 
   async getFreshAccessToken(userId: string) {
@@ -81,11 +90,21 @@ export class StravaOauthService {
     return StravaTokenResponseSchema.parse(data);
   }
 
-  async upsertProviderAccount(parsed: StravaTokenResponse, payload) {
-    const athlete = await this.strava.getLoggedInAthlete(parsed.access_token);
-    const provider = 'STRAVA' as const;
+  login(userId: string, next?: string) {
+    const state = this.auth.signForUser({ uid: userId, p: 'STRAVA', n: crypto.randomUUID(), next: next || '/profile' });
+    const url = this.buildAuthorizeUrl(state);
+    return { url };
+  }
 
-    return this.provider.upsertProviderAccount(parsed, provider, athlete, payload);
+  async callback(code?: string, state?: string) {
+    if (!code) throw new BadRequestException('Missing ?code');
+    const token = await this.exchangeCodeForToken(code);
+    const decoded = this.auth.decoded(state);
+    const provider = await this.upsertProviderAccount(token, decoded);
+    if (!provider) throw new NotFoundException('User not created');
+    const frontBase = this.config.get<string>('FRONT_APP_URL') || 'http://localhost:3001';
+    const url = `${frontBase.replace(/\/+$/, '')}/profile?provider=strava&status=success`;
+    return { url, statusCode: 302 };
   }
 
   deactivate(providerName, userId) {
