@@ -1,30 +1,25 @@
-import { BadRequestException, Controller, Get, NotFoundException, Query, Redirect, Res, Headers } from '@nestjs/common';
+import { BadRequestException, Controller, Get, NotFoundException, Param, Query, Redirect, Req, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { StravaOauthService } from './strava.oauth.service';
 import { AuthService } from '../auth/auth.service';
 import { ConfigService } from '@nestjs/config';
+import { JwtAuthGuard } from '../auth/jwt.guard';
 
-@Controller('auth')
+@Controller('strava')
 export class StravaOauthController {
   constructor(
     private readonly oauth: StravaOauthService,
     private readonly auth: AuthService,
     private readonly config: ConfigService,
-  ) {}
+  ) { }
 
-  @Get('login-url')
-  getLoginUrl() {
-    const state = crypto.randomUUID();
+  @UseGuards(JwtAuthGuard)
+  @Get('login')
+  getLogin(@Req() req: any, @Query('next') next?: string) {
+    const userId: string = req.user?.id || req.user?.sub;
+    const state = this.auth.signForUser({ uid: userId, p: 'STRAVA', n: crypto.randomUUID(), next: next || '/profile' });
     const url = this.oauth.buildAuthorizeUrl(state);
     return { url };
-  }
-
-  @Get('login')
-  @Redirect()
-  login() {
-    const state = crypto.randomUUID();
-    const url = this.oauth.buildAuthorizeUrl(state);
-    return { url, statusCode: 302 };
   }
 
   @Get('callback')
@@ -33,13 +28,24 @@ export class StravaOauthController {
     if (!code) throw new BadRequestException('Missing ?code');
 
     const token = await this.oauth.exchangeCodeForToken(code);
-    const user = await this.oauth.upsertAccount(token);
-    if (!user) throw new NotFoundException('User not created');
+    const decoded = this.auth.decoded(state);
+    const provider = await this.oauth.upsertProviderAccount(token, decoded);
+    if (!provider) throw new NotFoundException('User not created');
 
-    const jwt = this.auth.signForUser(user);
+    // const jwt = this.auth.signForUser(provider);
     const frontBase = this.config.get<string>('FRONT_APP_URL') || 'http://localhost:3001';
 
-    const url = `${frontBase.replace(/\/+$/, '')}/login/callback?token=${encodeURIComponent(jwt)}`;
+    const url = `${frontBase.replace(/\/+$/, '')}/profile?provider=strava&status=success`;
     return { url, statusCode: 302 };
+  }
+
+  @Get('deactivate/:provider/:userId')
+  async deactivate(@Param('provider') provider: string, @Param('userId') userId: string) {
+    return this.oauth.deactivate(provider, userId);
+  }
+
+  @Get('reactivate/:provider/:userId')
+  async reactivate(@Param('provider') provider: string, @Param('userId') userId: string) {
+    return this.oauth.reactivate(provider, userId);
   }
 }

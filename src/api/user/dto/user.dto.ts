@@ -14,12 +14,6 @@ export interface UserResponseDto {
     coachPersonality: 'COOL' | 'MODERATE' | 'COMPET' | null;
     runnerType: 'PLEASURE' | 'PROGRESS' | 'COMPETITOR' | null;
   };
-  thresholds: {
-    loadWeek: { p50: number; p75: number };
-    acwr: { p50: number; p75: number };
-    day: { p50: number; p75: number; p90: number };
-  } | null;
-  insights: string[];
 }
 
 export class UserDto {

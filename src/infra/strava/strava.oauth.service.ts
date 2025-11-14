@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
@@ -15,7 +15,20 @@ export class StravaOauthService {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly strava: StravaService,
-  ) {}
+  ) { }
+
+  private async hasProvider(userId: string, provider) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    const row = await this.prisma.providerAccount.findFirst({ where: { userId, provider: provider.toUpperCase() }, select: { id: true } });
+    return !!row;
+  }
+
+  private async getProvider(userId: string, provider) {
+    return await this.prisma.providerAccount.findFirst({ where: { userId, provider: provider.toUpperCase() } });
+  }
 
   buildAuthorizeUrl(state: string) {
     const clientId = this.config.get<string>('strava.clientId')!;
@@ -48,65 +61,75 @@ export class StravaOauthService {
     return parsed;
   }
 
-  async refreshToken(refreshToken: string): Promise<StravaTokenResponse> {
-    const clientId = this.config.get<string>('strava.clientId')!;
-    const clientSecret = this.config.get<string>('strava.clientSecret')!;
+  // async refreshToken(refreshToken: string): Promise<StravaTokenResponse> {
+  //   const clientId = this.config.get<string>('strava.clientId')!;
+  //   const clientSecret = this.config.get<string>('strava.clientSecret')!;
 
-    const { data } = await firstValueFrom(
-      this.http.post(`${this.oauthUrl}/token`, {
-        client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-      }),
-    );
+  //   const { data } = await firstValueFrom(
+  //     this.http.post(`${this.oauthUrl}/token`, {
+  //       client_id: clientId,
+  //       client_secret: clientSecret,
+  //       grant_type: 'refresh_token',
+  //       refresh_token: refreshToken,
+  //     }),
+  //   );
 
-    return StravaTokenResponseSchema.parse(data);
-  }
+  //   return StravaTokenResponseSchema.parse(data);
+  // }
 
-  async upsertAccount(parsed: StravaTokenResponse) {
+  async upsertProviderAccount(parsed: StravaTokenResponse, payload) {
     const athleteId = parsed.athlete.id;
     const expiresAt = new Date(parsed.expires_at * 1000);
     const athlete = await this.strava.getLoggedInAthlete(parsed.access_token);
+    const provider = 'STRAVA' as const;
+    const providerUserId = String(athleteId);
 
-    const existing = await this.prisma.user.findUnique({ where: { athleteId } });
-    if (existing) {
-      await this.prisma.user.update({
-        where: { id: existing.id },
-        data: {
-          accessToken: parsed.access_token,
-          refreshToken: parsed.refresh_token,
-          expiresAt,
-          userName: parsed.athlete.username ?? null,
-          sex: athlete.sex ?? undefined,
-          profile: athlete.profile ?? undefined,
-          profileMedium: athlete.profile_medium ?? undefined,
-          city: athlete.city ?? undefined,
-          state: athlete.state ?? undefined,
-          country: athlete.country ?? undefined,
-          measurementPref: athlete.measurement_preference ?? undefined,
-          isPremium: athlete.premium ?? undefined,
-        },
-      });
-      return this.prisma.user.findUnique({ where: { id: existing.id } });
-    }
-    // Créer un User lié Strava (sans email)
-    return this.prisma.user.create({
-      data: {
-        athleteId,
+    return this.prisma.providerAccount.upsert({
+      where: {
+        provider_providerUserId: { provider, providerUserId },
+      },
+      update: {
         accessToken: parsed.access_token,
         refreshToken: parsed.refresh_token,
         expiresAt,
-        userName: parsed.athlete.username ?? null,
-        sex: athlete.sex ?? undefined,
-        profile: athlete.profile ?? undefined,
-        profileMedium: athlete.profile_medium ?? undefined,
-        city: athlete.city ?? undefined,
-        state: athlete.state ?? undefined,
-        country: athlete.country ?? undefined,
-        measurementPref: athlete.measurement_preference ?? undefined,
         isPremium: athlete.premium ?? undefined,
+        isActive: true,
+        profile: athlete.profile ?? undefined,
+        userId: payload.user.uid,
+      },
+      create: {
+        userId: payload.user.uid,
+        provider,
+        providerUserId: providerUserId,
+        accessToken: parsed.access_token,
+        refreshToken: parsed.refresh_token,
+        expiresAt,
+        isPremium: athlete.premium ?? undefined,
+        isActive: true,
+        profile: athlete.profile ?? undefined,
       },
     });
+  }
+
+  private async toggle(providerName, userId, isActive: boolean) {
+    const providerData = await this.getProvider(userId, providerName.toUpperCase());
+    if (!providerData) {
+      throw new NotFoundException(`Aucun provider "${providerName}" trouvé pour l'utilisateur ${userId}`);
+    }
+    const provider = providerName.toUpperCase();
+    const providerUserId = String(providerData.providerUserId);
+
+    return this.prisma.providerAccount.update({
+      where: { provider_providerUserId: { provider, providerUserId } },
+      data: { isActive: isActive },
+    });
+  }
+
+  async deactivate(providerName, userId) {
+    return this.toggle(providerName, userId, false);
+  }
+
+  async reactivate(providerName, userId) {
+    return this.toggle(providerName, userId, true);
   }
 }

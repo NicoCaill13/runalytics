@@ -1,42 +1,52 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { CoachPersonalityEnum, MeasurementPrefEnum, RunnerTypeEnum, SexEnum } from '@/enum';
+import { UnitSource, Gender, HeartSource, CoachPersonality, RunnerType } from '@prisma/client';
 
 export class UpdateUserDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  username?: string;
+  userName?: string;
 
-  @ApiPropertyOptional({ enum: SexEnum })
+  @ApiPropertyOptional({ enum: Gender })
   @IsOptional()
-  @IsEnum(SexEnum)
-  sex?: SexEnum;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  city?: string;
+  @IsEnum(Gender)
+  gender?: Gender;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  country?: string;
+  firstName?: string;
 
-  @ApiPropertyOptional({ enum: MeasurementPrefEnum })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsEnum(MeasurementPrefEnum)
-  measurementPref?: MeasurementPrefEnum;
+  @IsString()
+  lastName?: string;
 
-  @ApiPropertyOptional({ enum: CoachPersonalityEnum })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsEnum(CoachPersonalityEnum)
-  coachPersonality?: CoachPersonalityEnum;
+  @IsInt()
+  weight?: number;
 
-  @ApiPropertyOptional({ enum: RunnerTypeEnum })
+  @ApiPropertyOptional({ enum: UnitSource })
   @IsOptional()
-  @IsEnum(RunnerTypeEnum)
-  runnerType?: RunnerTypeEnum;
+  @IsEnum(UnitSource)
+  measurementUnit?: UnitSource;
+
+  @ApiPropertyOptional({ enum: HeartSource })
+  @IsOptional()
+  @IsEnum(HeartSource)
+  heartUnit?: HeartSource;
+
+  @ApiPropertyOptional({ enum: CoachPersonality })
+  @IsOptional()
+  @IsEnum(CoachPersonality)
+  coachPersonality?: CoachPersonality;
+
+  @ApiPropertyOptional({ enum: RunnerType })
+  @IsOptional()
+  @IsEnum(RunnerType)
+  runnerType?: RunnerType;
 
   @ApiPropertyOptional({ minimum: 12, maximum: 85 })
   @IsOptional()
@@ -44,18 +54,4 @@ export class UpdateUserDto {
   @Min(12)
   @Max(85)
   age?: number;
-
-  @ApiPropertyOptional({ minimum: 100, maximum: 230 })
-  @IsOptional()
-  @IsInt()
-  @Min(100)
-  @Max(230)
-  fcm?: number;
-
-  @ApiPropertyOptional({ minimum: 30, maximum: 120 })
-  @IsOptional()
-  @IsInt()
-  @Min(30)
-  @Max(120)
-  fcrepos?: number;
 }

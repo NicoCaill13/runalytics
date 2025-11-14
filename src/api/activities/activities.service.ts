@@ -1,22 +1,20 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
 import { StravaService } from '@/infra/strava/strava.service';
-import { StravaTokenGuard } from '@/infra/strava/token.guard';
+//import { StravaTokenGuard } from '@/infra/strava/token.guard';
 import { bestWindow, computeVmaMs, isIntervalWorkout, isRunSport, mapStravaToDomain, mapStreamsToPoints, Point } from '@/types/activity';
 import { HeartRateStatus, mpsToKph } from '@/types/strava';
 import { computeSessionLoad } from '@/core/feature-engine/load';
-import { WeeklyFeaturesService } from '@/api/analytics/weekly-features.service';
 
 @Injectable()
 export class ActivitiesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly strava: StravaService,
-    private readonly tokenGuard: StravaTokenGuard,
-    private readonly weeklyFeatures: WeeklyFeaturesService,
-  ) {}
+    //private readonly tokenGuard: StravaTokenGuard,
+  ) { }
 
-  private async getActivitiesStreams(accessToken, activityID, userId) {
+  /* private async getActivitiesStreams(accessToken, activityID, userId) {
     try {
       const stream = await this.strava.getStreamsActivities(accessToken, activityID);
       const isHiit = isIntervalWorkout(stream);
@@ -134,6 +132,7 @@ export class ActivitiesService {
         if (!newest || d > newest) newest = d;
       }
     }
+
     const [fcSessions, totalSessions] = await Promise.all([
       this.prisma.activity.count({
         where: { userId, avgHr: { not: null } },
@@ -155,26 +154,17 @@ export class ActivitiesService {
       heartRateStatus = 'ready';
     }
 
-    // Mise à jour du user
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        hasHeartRateData: fcSessions > 0,
-        heartRateCoverage: coverage,
-        heartRateStatus,
-      },
-    });
-
     const now = new Date();
     await this.prisma.user.update({
       where: { id: userId },
       data: {
         lastSyncedAt: now,
         lastActivityAt: newest ?? user.lastActivityAt ?? null,
+        hasHeartRateData: fcSessions > 0,
+        heartRateCoverage: coverage,
+        heartRateStatus,
       },
     });
-
-    await this.weeklyFeatures.computeForUser(userId, /* since= */ new Date(Date.now() - 1000 * 60 * 60 * 24 * 35));
 
     return {
       userId,
@@ -194,4 +184,5 @@ export class ActivitiesService {
     const pts = mapStreamsToPoints(stream);
     return { pts };
   }
+    */
 }

@@ -25,24 +25,11 @@ export interface StravaActivity {
 
 export type StravaActivitiesResponse = StravaActivity[];
 
-export type Zones = Record<'z1' | 'z2' | 'z3' | 'z4' | 'z5', { min: number; max: number }>;
 export type CoachPersonality = 'COOL' | 'MODERATE' | 'COMPET';
 export type Sex = 'M' | 'F' | undefined;
-export type VmaSource = 'ESTIMATED' | 'USER';
 
-export interface VmaEstimateDto {
-  vmaMps: number;
-  vmaKph: number;
-  pacePerKm: string;
-  source: VmaSource;
-  confidence: number;
-  runsCount: number;
-  firstRun: any;
-  lastRun: any;
-}
-
-export const kphToMps = (kph: number) => kph / 3.6;
-export const mpsToKph = (mps: number) => mps * 3.6;
+export const kphToMps = (kph: number) => Math.round((kph / 3.6) * 10) / 10;
+export const mpsToKph = (mps: number) => Math.round(mps * 3.6 * 10) / 10;
 export const mphToMps = (mph: number) => mph * 0.44704;
 export const mpsToMph = (mps: number) => mps / 0.44704;
 export const kphToPaceStr = (kph: number): string => {

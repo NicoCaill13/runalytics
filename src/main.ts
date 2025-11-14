@@ -5,6 +5,7 @@ import { ValidationPipe, ClassSerializerInterceptor, HttpStatus } from '@nestjs/
 import { PrismaClientExceptionFilter } from 'nestjs-prisma';
 import { ConfigService } from '@nestjs/config';
 import { AllExceptionsFilter } from './infra/http/exception';
+import { SuccessResponseInterceptor } from './infra/http/success';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,11 +17,20 @@ async function bootstrap() {
       whitelist: true, // supprime les champs non attendus
       forbidNonWhitelisted: true,
       transform: true, // transforme les payloads vers les DTO
-      transformOptions: { enableImplicitConversion: true },
+      transformOptions: { enableImplicitConversion: false },
     }),
   );
 
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+  //app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+
+  const reflector = app.get(Reflector);
+
+  // 1) sérialiser d'abord
+  const classSerializer = new ClassSerializerInterceptor(reflector);
+  // 2) puis wrapper 2xx
+  const successWrapper = new SuccessResponseInterceptor(reflector);
+
+  app.useGlobalInterceptors(classSerializer, successWrapper);
 
   const config = new DocumentBuilder()
     .setTitle('Runalytics API')
@@ -30,7 +40,7 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('doc', app, document);
   const { httpAdapter } = app.get(HttpAdapterHost);
   app.useGlobalFilters(
     new PrismaClientExceptionFilter(httpAdapter, {

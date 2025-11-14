@@ -5,20 +5,20 @@ import { ApiOperation } from '@nestjs/swagger';
 
 @Controller('activities')
 export class ActivitiesController {
-  constructor(private readonly svc: ActivitiesService) {}
+  constructor(private readonly svc: ActivitiesService) { }
 
   // POST /activities/sync-runs/:userId
-  @Post('sync-runs/:userId')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "Récupérer toutes les activités d'un utilisateur par id" })
-  syncRuns(@Param('userId') userId: string) {
-    return this.svc.syncUserActivities(userId);
-  }
+  // @Post('sync-runs/:userId')
+  // @UseGuards(JwtAuthGuard)
+  // @ApiOperation({ summary: "Récupérer toutes les activités d'un utilisateur par id" })
+  // syncRuns(@Param('userId') userId: string) {
+  //   return this.svc.syncUserActivities(userId);
+  // }
 
-  // POST /activities/sync-runs/:userId
-  @Get(':userId/streams/:activityID')
-  @ApiOperation({ summary: "Récupérer toutes les activités d'un utilisateur par id" })
-  getStreams(@Param('userId') userId: string, @Param('activityID') activityID: string) {
-    return this.svc.getStreams(userId, activityID);
-  }
+  // // POST /activities/sync-runs/:userId
+  // @Get(':userId/streams/:activityID')
+  // @ApiOperation({ summary: "Récupérer toutes les activités d'un utilisateur par id" })
+  // getStreams(@Param('userId') userId: string, @Param('activityID') activityID: string) {
+  //   return this.svc.getStreams(userId, activityID);
+  // }
 }

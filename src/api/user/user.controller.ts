@@ -1,11 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { UserService } from './user.service';
-import { UserDto, UserResponseDto } from './dto/user.dto';
+import { UserDto } from './dto/user.dto';
 import { ApiBadRequestResponse, ApiNotFoundResponse, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { UpdateUserDto } from './dto/update.dto';
 
-@Controller('me')
+@Controller('users')
 export class UserController {
-  constructor(private readonly svc: UserService) {}
+  constructor(private readonly svc: UserService) { }
 
   @Get(':userId')
   @ApiOperation({ summary: 'Récupérer un utilisateur par id' })
@@ -20,7 +23,18 @@ export class UserController {
   @ApiOkResponse({ type: UserDto })
   @ApiNotFoundResponse()
   @ApiBadRequestResponse()
-  async updateProfile(@Param('userId') userId: string, @Body() body: { age?: number; fcm?: number; fcrepos?: number; vmaMps?: number }) {
-    return this.svc.updateUserMetrics(userId, body);
+  async updateUser(@Param('userId') userId: string, @Body() dto: UpdateUserDto) {
+    return this.svc.updateUser(userId, dto);
+  }
+
+  @Post('register')
+  register(@Body() dto: RegisterDto) {
+    return this.svc.register(dto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('login')
+  login(@Body() dto: LoginDto) {
+    return this.svc.login(dto);
   }
 }

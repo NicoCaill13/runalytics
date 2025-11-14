@@ -1,11 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
-import { VmaEstimateDto, mpsToKph, kphToPaceStr, ARBRow } from '@/types/strava';
-import { run } from 'node:test';
+import { mpsToKph, kphToPaceStr, ARBRow, decToNum } from '@/types/strava';
+import { Prisma } from '@prisma/client';
+import { CardioService } from '../cardio/cardio.service';
+import { VmaEstimate } from './vma.dto';
 
 @Injectable()
 export class VmaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cardio: CardioService,
+  ) { }
 
   private async getVmaCutoff(userId: string): Promise<Date | undefined> {
     const last = await this.prisma.physioHistory.findFirst({
@@ -45,23 +50,23 @@ export class VmaService {
       const cand360 =
         r.speedMps360 != null
           ? {
-              speedMs: Number(r.speedMps360),
-              windowSec: 360 as const,
-              startDate: r.activity.dateUtc,
-              startOffsetS: r.startOffsetS360!,
-              endOffsetS: r.endOffsetS360!,
-            }
+            speedMs: Number(r.speedMps360),
+            windowSec: 360 as const,
+            startDate: r.activity.dateUtc,
+            startOffsetS: r.startOffsetS360!,
+            endOffsetS: r.endOffsetS360!,
+          }
           : null;
 
       const cand720 =
         r.speedMps720 != null
           ? {
-              speedMs: Number(r.speedMps720),
-              windowSec: 720 as const,
-              startDate: r.activity.dateUtc,
-              startOffsetS: r.startOffsetS720!,
-              endOffsetS: r.endOffsetS720!,
-            }
+            speedMs: Number(r.speedMps720),
+            windowSec: 720 as const,
+            startDate: r.activity.dateUtc,
+            startOffsetS: r.startOffsetS720!,
+            endOffsetS: r.endOffsetS720!,
+          }
           : null;
 
       for (const c of [cand360, cand720]) {
@@ -72,7 +77,7 @@ export class VmaService {
     return best;
   }
 
-  async estimateFromActivities(userId: string): Promise<VmaEstimateDto> {
+  async estimateFromActivities(userId: string): Promise<VmaEstimate> {
     const cutoff = await this.getVmaCutoff(userId);
     const runs = await this.loadRollingBestsSince(userId, cutoff);
     if (!runs.length) throw new NotFoundException('No activities');
@@ -83,6 +88,11 @@ export class VmaService {
     const best = this.pickBestCandidate(runs);
     if (!best) throw new NotFoundException('No activities');
 
+    const needVmaUser = !(await this.cardio.hasUserPhysio(userId, 'VMA'));
+    const needHrMaxUser = !(await this.cardio.hasUserPhysio(userId, 'FC_MAX'));
+    const needHrRestUser = !(await this.cardio.hasUserPhysio(userId, 'FC_REPOS'));
+    const needsSetup = needVmaUser || needHrMaxUser || needHrRestUser;
+
     return {
       vmaMps: best.speedMs,
       vmaKph: mpsToKph(best.speedMs),
@@ -92,14 +102,11 @@ export class VmaService {
       firstRun: first?.activity?.dateUtc,
       lastRun: last?.activity?.dateUtc,
       runsCount: runs.length,
+      needsSetup,
     };
   }
 
-  async currentOrEstimate(userId: string): Promise<VmaEstimateDto> {
-    return this.estimateFromActivities(userId);
-  }
-
-  async estimateAndPersist(userId: string): Promise<VmaEstimateDto> {
+  async estimateAndPersist(userId: string): Promise<VmaEstimate> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException();
@@ -127,7 +134,7 @@ export class VmaService {
       data: {
         userId: userId,
         metric: 'VMA',
-        value: mpsToKph(est.vmaMps),
+        value: new Prisma.Decimal(mpsToKph(est.vmaMps)),
         source: 'ESTIMATED',
         runsCount: est.runsCount,
         windowStart: new Date(est.firstRun),
@@ -135,5 +142,16 @@ export class VmaService {
       },
     });
     return est;
+  }
+
+  async current(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException();
+    }
+    const cardio = await this.cardio.getPhysioValue(userId, 'VMA');
+    return {
+      VMA: cardio,
+    };
   }
 }

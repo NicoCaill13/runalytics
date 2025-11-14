@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { VmaModule } from './vma/vma.module';
+import { CardioModule } from './cardio/cardio.module';
 import { PlanModule } from './plan/plan.module';
-import { AnalysisModule } from './analysis/analysis.module';
 
 @Module({
-  imports: [VmaModule, PlanModule, AnalysisModule],
-  exports: [VmaModule, PlanModule, AnalysisModule],
+  imports: [VmaModule, PlanModule, CardioModule],
+  exports: [VmaModule, PlanModule, CardioModule],
 })
 export class CoachModule {}

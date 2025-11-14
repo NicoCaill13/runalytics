@@ -24,6 +24,11 @@ enum ValueSource {
     USER
 }
 
+enum UnitSource {
+    METRIC
+    IMPERIAL
+}
+
 enum MetricSource {
     VMA
     FC_REPOS
@@ -31,6 +36,11 @@ enum MetricSource {
     FC_RESERVE
     HRR_ZONES
     VMA_ZONES
+}
+
+enum HeartSource {
+    HRR
+    FC_MAX
 }
 
 enum ActivityType {
@@ -46,33 +56,102 @@ enum IntervalRun {
     COOPER
 }
 
-model User {
-    id           String  @id @default(cuid())
-    athleteId    Int?    @unique
-    userName     String?
-    accessToken  String?
-    refreshToken String?
+enum Provider {
+    STRAVA
+    GARMIN
+    COROS
+    POLAR
+    SUUNTO
+    APPLE_HEALTH
+    GOOGLE_HEALTH
+}
 
-    hasHeartRateData  Boolean? @default(false)
+enum SyncStatus {
+    IDLE
+    RUNNING
+    FAILED
+    COMPLETED
+}
+
+enum Gender {
+    MALE
+    FEMALE
+    OTHER
+}
+
+model ProviderAccount {
+    id                String    @id @default(cuid())
+    userId            String
+    provider          Provider
+    providerUserId    String // ex: athleteId Strava, userId Garmin...
+    scope             String? // scopes OAuth (ex: "activity:read_all,profile:read_all")
+    isPremium         Boolean?
+    isActive          Boolean?
+    hasHeartRateData  Boolean?  @default(false)
     heartRateCoverage Float?
     heartRateStatus   String?
+    accessToken       String?
+    refreshToken      String?
+    expiresAt         DateTime?
+    profile           Json? // dump du profil provider (facultatif)
+    createdAt         DateTime  @default(now())
+    updatedAt         DateTime  @updatedAt
 
-    sex             String? // 'M' | 'F'
-    profile         String? // large
-    profileMedium   String?
-    city            String?
-    state           String?
-    country         String?
-    measurementPref String? // 'meters' | 'feet'
-    isPremium       Boolean? // Strava Summit/Premium
+    user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+    activities Activity[]
 
-    // Profil coureur & coach
-    runnerType       RunnerType?
+    @@unique([provider, providerUserId])
+    @@index([userId, provider])
+}
+
+model SyncCursor {
+    id           String     @id @default(cuid())
+    userId       String
+    provider     Provider
+    status       SyncStatus @default(IDLE)
+    cursor       String? // pagination key / webhook state
+    since        DateTime? // point de départ (backfill)
+    lastSyncedAt DateTime?
+    error        String?
+    meta         Json?
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, provider])
+}
+
+model SyncLog {
+    id        String   @id @default(cuid())
+    userId    String
+    provider  Provider
+    level     String // INFO|WARN|ERROR
+    message   String
+    context   Json?
+    createdAt DateTime @default(now())
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId, provider, createdAt])
+}
+
+model User {
+    id        String   @id @default(cuid())
+    userName  String
+    firstName String?
+    lastName  String?
+    weight    Int?
+    email     String
+    password  String
+    gender    Gender
+    birthDay  DateTime
+
+    measurementUnit UnitSource  @default(METRIC)
+    heartUnit       HeartSource @default(HRR)
+
+    runnerType       RunnerType?      @default(PLEASURE)
     coachPersonality CoachPersonality @default(MODERATE)
 
     age Int?
-
-    expiresAt DateTime?
 
     lastSyncedAt   DateTime?
     lastActivityAt DateTime?
@@ -80,9 +159,14 @@ model User {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    activities     Activity[]
-    WeeklyFeatures WeeklyFeatures[]
-    PhysioHistory  PhysioHistory[]
+    activities       Activity[]
+    WeeklyFeatures   WeeklyFeatures[]
+    physioHistory    PhysioHistory[]
+    providerAccounts ProviderAccount[]
+    syncCursors      SyncCursor[]
+    syncLogs         SyncLog[]
+
+    @@unique([email])
 }
 
 model PhysioHistory {
@@ -106,26 +190,34 @@ model PhysioHistory {
 }
 
 model Activity {
-    id                  String                @id @default(cuid())
-    userId              String
-    providerId          String                @unique // id Strava
-    dateUtc             DateTime
-    dateLocal           DateTime
-    distanceM           Int
-    movingTimeS         Int
-    elevGainM           Int
-    sport               String
-    avgHr               Int?
-    maxHr               Int?
-    avgCadSpm           Int?
-    avgPaceSpKm         Int?
-    hrZone              String?
+    id     String @id @default(cuid())
+    userId String
+
+    provider   Provider
+    externalId String
+
+    accountId String?
+    account   ProviderAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+    dateUtc     DateTime
+    dateLocal   DateTime
+    distanceM   Int
+    movingTimeS Int
+    elevGainM   Int
+    sport       String
+    avgHr       Int?
+    maxHr       Int?
+    avgCadSpm   Int?
+    avgPaceSpKm Int?
+    hrZone      String?
+
     load                Float?
     type                ActivityType?
     createdAt           DateTime              @default(now())
     user                User                  @relation(fields: [userId], references: [id])
     ActivityRollingBest ActivityRollingBest[]
 
+    @@unique([userId, provider, externalId])
     @@index([userId, dateUtc])
 }
 
@@ -134,7 +226,7 @@ model ActivityRollingBest {
 
     // relations
     activityId String
-    activity   Activity @relation(fields: [activityId], references: [providerId], onDelete: Cascade)
+    activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
     userId     String
 
     // Fenêtre 360 s (6')
