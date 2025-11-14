@@ -4,9 +4,10 @@ import configuration from '@/shared/config/configuration';
 import { EnvSchema } from '@/shared/config/validation';
 import { StravaModule } from './infra/strava/strava.module';
 import { PrismaModule } from './infra/db/prisma.module';
-import { ActivitiesModule } from '@/api/activities/activities.module';
+//import { ActivitiesModule } from '@/api/activities/activities.module';
 import { CoachModule } from '@/api/coach/coach.module';
 import { UserModule } from '@/api/user/user.module';
+import { ProviderModule } from './providers/providers.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { UserModule } from '@/api/user/user.module';
     // ActivitiesModule,
     CoachModule,
     UserModule,
+    ProviderModule,
   ],
 })
 export class AppModule { }

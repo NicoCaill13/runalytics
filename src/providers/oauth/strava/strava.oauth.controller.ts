@@ -1,11 +1,11 @@
 import { BadRequestException, Controller, Get, NotFoundException, Param, Query, Redirect, Req, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { StravaOauthService } from './strava.oauth.service';
-import { AuthService } from '../auth/auth.service';
+import { AuthService } from '../../../infra/auth/auth.service';
 import { ConfigService } from '@nestjs/config';
-import { JwtAuthGuard } from '../auth/jwt.guard';
+import { JwtAuthGuard } from '../../../infra/auth/jwt.guard';
 
-@Controller('strava')
+@Controller('oauth/strava')
 export class StravaOauthController {
   constructor(
     private readonly oauth: StravaOauthService,
@@ -32,20 +32,19 @@ export class StravaOauthController {
     const provider = await this.oauth.upsertProviderAccount(token, decoded);
     if (!provider) throw new NotFoundException('User not created');
 
-    // const jwt = this.auth.signForUser(provider);
     const frontBase = this.config.get<string>('FRONT_APP_URL') || 'http://localhost:3001';
 
     const url = `${frontBase.replace(/\/+$/, '')}/profile?provider=strava&status=success`;
     return { url, statusCode: 302 };
   }
 
-  @Get('deactivate/:provider/:userId')
-  async deactivate(@Param('provider') provider: string, @Param('userId') userId: string) {
-    return this.oauth.deactivate(provider, userId);
+  @Get('deactivate/:userId')
+  deactivate(@Param('userId') userId: string) {
+    return this.oauth.deactivate('STRAVA', userId);
   }
 
-  @Get('reactivate/:provider/:userId')
-  async reactivate(@Param('provider') provider: string, @Param('userId') userId: string) {
-    return this.oauth.reactivate(provider, userId);
+  @Get('reactivate/:userId')
+  reactivate(@Param('userId') userId: string) {
+    return this.oauth.reactivate('STRAVA', userId);
   }
 }

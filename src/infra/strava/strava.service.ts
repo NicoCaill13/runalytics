@@ -9,7 +9,7 @@ export class StravaService {
   private readonly logger = new Logger(StravaService.name);
   private readonly baseUrl = 'https://www.strava.com/api/v3';
 
-  constructor(private readonly http: HttpService) {}
+  constructor(private readonly http: HttpService) { }
 
   /**
    * Récupère une page d'activités Strava de l'athlète (typée).

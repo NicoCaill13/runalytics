@@ -1,11 +1,11 @@
 import { Controller, Post, Param, UseGuards, Get } from '@nestjs/common';
-import { ActivitiesService } from './activities.service';
 import { JwtAuthGuard } from '@/infra/auth/jwt.guard';
 import { ApiOperation } from '@nestjs/swagger';
+import { ProviderAccountService } from './providerAccount.service';
 
-@Controller('activities')
-export class ActivitiesController {
-  constructor(private readonly svc: ActivitiesService) { }
+@Controller('provider-account')
+export class ProviderAccountController {
+  constructor(private readonly svc: ProviderAccountService) { }
 
   // @Post('sync-runs/:userId')
   // @UseGuards(JwtAuthGuard)
