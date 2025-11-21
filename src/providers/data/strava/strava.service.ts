@@ -207,7 +207,7 @@ export class StravaService {
           userId,
           provider: Provider.STRAVA,
         },
-        orderBy: { startDate: 'desc' },
+        orderBy: { startDate: 'asc' },
         select: { startDate: true },
       });
 
