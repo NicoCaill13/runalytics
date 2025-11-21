@@ -1,9 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
-import { StravaService } from '@/infra/strava/strava.service';
-import { bestWindow, computeVmaMs, isIntervalWorkout, isRunSport, mapStravaToDomain, mapStreamsToPoints, Point } from '@/types/activity';
-import { HeartRateStatus, mpsToKph } from '@/types/strava';
-import { computeSessionLoad } from '@/core/feature-engine/load';
+import { StravaService } from '@/providers/data/strava/strava.service';
 
 @Injectable()
 export class ActivitiesService {

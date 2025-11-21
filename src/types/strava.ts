@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, Provider } from '@prisma/client';
 
 export type SportType = 'Run' | 'TrailRun' | 'Hike' | 'Walk' | 'VirtualRun';
 export type HeartRateStatus = 'none' | 'partial' | 'ready';
@@ -21,11 +21,17 @@ export interface StravaActivity {
   average_speed?: number; // m/s
   max_speed?: number; // m/s
   private?: boolean;
+  provider?: Provider;
+  external_id?: string;
+  start_latlng?: number;
+  end_latlng?: number;
+  timezone?: string;
+  utc_offset?: number;
+  map?: string;
 }
 
 export type StravaActivitiesResponse = StravaActivity[];
 
-export type CoachPersonality = 'COOL' | 'MODERATE' | 'COMPET';
 export type Sex = 'M' | 'F' | undefined;
 
 export const kphToMps = (kph: number) => Math.round((kph / 3.6) * 10) / 10;

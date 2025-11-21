@@ -30,4 +30,10 @@ export class StravaOauthController {
   reactivate(@Param('userId') userId: string) {
     return this.oauth.reactivate('STRAVA', userId);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('refresh/:userId')
+  getFreshAccessToken(@Param('userId') userId: string) {
+    return this.oauth.getFreshAccessToken(userId);
+  }
 }

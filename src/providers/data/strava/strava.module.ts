@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
-import { PrismaModule } from '@/infra/db/prisma.module';
 import { StravaService } from './strava.service';
-import { AuthModule } from '@/infra/auth/auth.module';
+import { StravaController } from './strava.controller';
+import { RollingBestModule } from '@/api/rollingBest/rollingBest.module';
 
 @Module({
-  imports: [HttpModule, PrismaModule, AuthModule],
+  imports: [HttpModule, RollingBestModule],
+  controllers: [StravaController],
   providers: [StravaService],
   exports: [StravaService],
 })

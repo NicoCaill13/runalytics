@@ -3,7 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { StravaTokenResponseSchema, StravaTokenResponse } from './strava.oauth.dto';
-import { StravaService } from '../../../infra/strava/strava.service';
+import { StravaService } from '@/providers/data/strava/strava.service';
 import { ProviderAccountService } from '@/api/providerAccount/providerAccount.service';
 import { AuthService } from '@/infra/auth/auth.service';
 
@@ -50,31 +50,7 @@ export class StravaOauthService {
     return parsed;
   }
 
-  private async upsertProviderAccount(parsed: StravaTokenResponse, payload) {
-    const athlete = await this.strava.getLoggedInAthlete(parsed.access_token);
-    const provider = 'STRAVA' as const;
-
-    return this.provider.upsertProviderAccount(parsed, provider, athlete, payload);
-  }
-
-  async getFreshAccessToken(userId: string) {
-    const providerAccount = await this.provider.getProvider(userId, 'STRAVA');
-
-    if (!providerAccount?.refreshToken) throw new Error('Strava non lié');
-
-    const now = Date.now();
-    if (providerAccount.expiresAt && providerAccount.expiresAt.getTime() - now > 60_000 && providerAccount.accessToken) {
-      return providerAccount.accessToken; // encore valide
-    }
-
-    const refreshed = await this.refreshToken(providerAccount.refreshToken);
-
-    const updated = await this.provider.refreshTokens('STRAVA', refreshed);
-
-    return updated.accessToken!;
-  }
-
-  async refreshToken(refreshToken: string): Promise<StravaTokenResponse> {
+  private async refreshToken(refreshToken: string): Promise<any> {
     const clientId = this.config.get<string>('strava.clientId')!;
     const clientSecret = this.config.get<string>('strava.clientSecret')!;
 
@@ -86,8 +62,31 @@ export class StravaOauthService {
         refresh_token: refreshToken,
       }),
     );
+    return data;
+  }
 
-    return StravaTokenResponseSchema.parse(data);
+  private async upsertProviderAccount(parsed: StravaTokenResponse, payload) {
+    const athlete = await this.strava.getLoggedInAthlete(parsed.access_token);
+    const provider = 'STRAVA' as const;
+
+    return this.provider.upsertProviderAccount(parsed, provider, athlete, payload);
+  }
+
+  async getFreshAccessToken(userId: string) {
+    const providerAccount = await this.provider.getProvider(userId, 'STRAVA');
+    if (!providerAccount?.refreshToken) throw new BadRequestException('Strava non lié');
+
+    const now = Date.now();
+    if (providerAccount.expiresAt && providerAccount.expiresAt.getTime() - now > 60_000 && providerAccount.accessToken) {
+      return providerAccount.accessToken;
+    }
+
+    const refreshed = await this.refreshToken(providerAccount.refreshToken);
+    const user = { ...refreshed, providerUserId: providerAccount.providerUserId };
+
+    const updated = await this.provider.refreshTokens('STRAVA', user);
+
+    return updated.accessToken!;
   }
 
   login(userId: string, next?: string) {

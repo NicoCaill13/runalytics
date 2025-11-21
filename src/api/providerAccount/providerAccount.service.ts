@@ -34,7 +34,7 @@ export class ProviderAccountService {
 
   async refreshTokens(provider, refreshed) {
     const expiresAt = new Date(refreshed.expires_at * 1000);
-    const providerUserId = String(refreshed.athlete.id);
+    const providerUserId = String(refreshed.providerUserId);
     return await this.prisma.providerAccount.update({
       where: { provider_providerUserId: { provider, providerUserId } },
       data: { accessToken: refreshed.access_token, refreshToken: refreshed.refresh_token, expiresAt },

@@ -1,5 +1,5 @@
-import { CoachPersonalityEnum, MeasurementPrefEnum, RunnerTypeEnum, SexEnum } from '@/enum';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { RunnerType, CoachPersonality, UnitSource, Gender } from '@prisma/client';
 
 export interface UserResponseDto {
   user: {
@@ -20,22 +20,22 @@ export class UserDto {
   @ApiProperty() id!: string;
   @ApiPropertyOptional() username!: string | null;
 
-  @ApiPropertyOptional({ enum: SexEnum, nullable: true })
-  sex!: SexEnum | null;
+  @ApiPropertyOptional({ enum: Gender, nullable: true })
+  sex!: Gender | null;
 
   @ApiPropertyOptional() profile!: string | null;
   @ApiPropertyOptional() profileMedium!: string | null;
   @ApiPropertyOptional() city!: string | null;
   @ApiPropertyOptional() country!: string | null;
 
-  @ApiPropertyOptional({ enum: MeasurementPrefEnum, nullable: true })
-  measurementPref!: MeasurementPrefEnum | null;
+  @ApiPropertyOptional({ enum: UnitSource, nullable: true })
+  measurementPref!: UnitSource | null;
 
-  @ApiPropertyOptional({ enum: CoachPersonalityEnum, nullable: true })
-  coachPersonality!: CoachPersonalityEnum | null;
+  @ApiPropertyOptional({ enum: CoachPersonality, nullable: true })
+  coachPersonality!: CoachPersonality | null;
 
-  @ApiPropertyOptional({ enum: RunnerTypeEnum, nullable: true })
-  runnerType!: RunnerTypeEnum | null;
+  @ApiPropertyOptional({ enum: RunnerType, nullable: true })
+  runnerType!: RunnerType | null;
 
   @ApiPropertyOptional() age!: number | null;
 
