@@ -1,27 +1,43 @@
-import { Body, Controller, Get, Param, Patch, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { UserService } from './user.service';
-import { UserResponseDto } from './user.dto';
+import { UserDto } from './dto/user.dto';
+import { ApiBadRequestResponse, ApiNotFoundResponse, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { UpdateUserDto } from './dto/update.dto';
 
-@Controller('me')
+@Controller('users')
 export class UserController {
-  constructor(private readonly svc: UserService) {}
+  constructor(private readonly svc: UserService) { }
 
-  // Version avec auth (req.user.id) si tu as un guard
-  @Get('me/auth')
-  async me(@Req() req: any): Promise<UserResponseDto> {
-    const userId = req.user?.id || req.headers['x-user-id']; // fallback pratique pour tester
-    if (!userId) throw new Error('No user in request. Provide x-user-id for testing.');
-    return this.svc.getByUserId(String(userId));
-  }
-
-  // Fallback pratique sans auth, pour curl
   @Get(':userId')
-  async meById(@Param('userId') userId: string): Promise<UserResponseDto> {
+  @ApiOperation({ summary: 'Récupérer un utilisateur par id' })
+  @ApiOkResponse({ type: UserDto })
+  @ApiNotFoundResponse()
+  async meById(@Param('userId') userId: string) {
     return this.svc.getByUserId(userId);
   }
 
   @Patch(':userId')
-  async updateProfile(@Param('userId') userId: string, @Body() body: { age?: number; fcm?: number; fcrepos?: number; vmaMps?: number }) {
-    return this.svc.updateUserMetrics(userId, body);
+  @ApiOperation({ summary: 'Mettre à jour un utilisateur (champs profil généraux)' })
+  @ApiOkResponse({ type: UserDto })
+  @ApiNotFoundResponse()
+  @ApiBadRequestResponse()
+  async updateUser(@Param('userId') userId: string, @Body() dto: UpdateUserDto) {
+    return this.svc.updateUser(userId, dto);
+  }
+
+  @Post('register')
+  register(@Body() dto: RegisterDto) {
+    return this.svc.register(dto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('login')
+  login(@Body() dto: LoginDto) {
+    return this.svc.login(dto);
   }
 }
+
+//nicolas@smilers.com
+//theo&elena13

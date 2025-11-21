@@ -1,95 +1,215 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/infra/db/prisma.service';
-import { VmaEstimateDto, mpsToKph, kphToPaceStr } from '@/shared/types/strava';
-
-function paceStrFromMps(mps: number) {
-  const kph = mpsToKph(mps);
-  return kphToPaceStr(kph);
-}
+import { CardioService } from '../cardio/cardio.service';
+import { round2 } from '../cardio/cardio.dto';
 
 @Injectable()
 export class VmaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cardio: CardioService,
+  ) { }
+  private async estimateVmaFromRollingBests(userId: string): Promise<number | null> {
+    const [best, runsCount] = await this.prisma.$transaction([
+      this.prisma.activityRollingBest.findFirst({
+        where: {
+          userId,
+          speedMps360: { not: null },
+        },
+        orderBy: {
+          speedMps360: 'desc',
+        },
+        select: {
+          speedMps360: true,
+        },
+      }),
+      this.prisma.activityRollingBest.count({
+        where: {
+          userId,
+          speedMps360: { not: null },
+        },
+      }),
+    ]);
 
-  private from10k(distM: number, timeS: number): VmaEstimateDto {
-    const v10k = distM / timeS; // m/s
-    const vma = v10k * 1.12;
-    return { vmaMps: vma, vmaKph: mpsToKph(vma), pacePerKm: kphToPaceStr(mpsToKph(vma)), source: '10k_race', confidence: 0.8 };
-  }
-  private from5k(distM: number, timeS: number): VmaEstimateDto {
-    const v5k = distM / timeS;
-    const vma = v5k * 1.07;
-    return { vmaMps: vma, vmaKph: mpsToKph(vma), pacePerKm: kphToPaceStr(mpsToKph(vma)), source: '5k_race', confidence: 0.7 };
-  }
-  private fromTempo(distM: number, timeS: number): VmaEstimateDto {
-    const v = distM / timeS;
-    const vma = v * 1.15;
-    return { vmaMps: vma, vmaKph: mpsToKph(vma), pacePerKm: kphToPaceStr(mpsToKph(vma)), source: 'tempo', confidence: 0.5 };
-  }
-
-  private async fromStored(userId: string): Promise<VmaEstimateDto | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { vmaMps: true },
-    });
-    if (!user?.vmaMps) return null;
-    const v = user.vmaMps;
-    return { vmaMps: v, vmaKph: mpsToKph(v), pacePerKm: paceStrFromMps(v), source: 'stored', confidence: 1.0 };
-  }
-
-  async estimateFromActivities(userId: string): Promise<VmaEstimateDto> {
-    const acts = await this.prisma.activity.findMany({
-      where: { userId, sport: 'run' },
-      select: { id: true, distanceM: true, movingTimeS: true, avgPaceSpKm: true, dateUtc: true },
-      orderBy: { dateUtc: 'desc' },
-      take: 400,
-    });
-    if (!acts.length) throw new Error('No activities');
-
-    // candidats 10K (8.5..12.5 km, pauses faibles implicites dans movingTimeS)
-    const c10 = acts
-      .filter((a) => a.distanceM && a.movingTimeS && a.distanceM >= 8500 && a.distanceM <= 12500)
-      .sort((a, b) => a.movingTimeS / a.distanceM - b.movingTimeS / b.distanceM)[0];
-
-    if (c10) return this.from10k(c10.distanceM, c10.movingTimeS);
-
-    // candidats 5K (4..6.5 km)
-    const c5 = acts
-      .filter((a) => a.distanceM && a.movingTimeS && a.distanceM >= 4000 && a.distanceM <= 6500)
-      .sort((a, b) => a.movingTimeS / a.distanceM - b.movingTimeS / b.distanceM)[0];
-    if (c5) return this.from5k(c5.distanceM, c5.movingTimeS);
-
-    // tempo (20..50 min, meilleure vitesse moyenne)
-    const tempo = acts
-      .filter((a) => a.movingTimeS && a.movingTimeS >= 1200 && a.movingTimeS <= 3000 && a.distanceM)
-      .sort((a, b) => b.distanceM / b.movingTimeS - a.distanceM / a.movingTimeS)[0];
-    if (tempo) return this.fromTempo(tempo.distanceM, tempo.movingTimeS);
-
-    // dernier recours : meilleure séance 20..30 min
-    const best = acts
-      .filter((a) => a.movingTimeS && a.movingTimeS >= 1200 && a.movingTimeS <= 1800 && a.distanceM)
-      .sort((a, b) => b.distanceM / b.movingTimeS - a.distanceM / a.movingTimeS)[0];
-    if (best) return this.fromTempo(best.distanceM, best.movingTimeS);
-
-    throw new Error('Not enough data for VMA estimate');
-  }
-
-  async currentOrEstimate(userId: string): Promise<VmaEstimateDto> {
-    const stored = await this.fromStored(userId);
-    if (stored) return stored;
-    return this.estimateFromActivities(userId);
-  }
-
-  async estimateAndPersist(userId: string, force = false): Promise<VmaEstimateDto> {
-    if (!force) {
-      const stored = await this.fromStored(userId);
-      if (stored) return stored;
+    if (!best || best.speedMps360 == null || runsCount === 0) {
+      throw new BadRequestException("Impossible d'estimer la VMA : pas assez de runs avec une fenêtre 6'.");
     }
-    const est = await this.estimateFromActivities(userId);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { vmaMps: est.vmaMps, vmaUpdatedAt: new Date(), vmaKph: mpsToKph(est.vmaMps) },
-    });
-    return est;
+
+    const speedMps = Number(best.speedMps360);
+    if (!speedMps || speedMps <= 0) {
+      throw new BadRequestException("Impossible d'estimer la VMA : valeur de speedMps360 invalide.");
+    }
+
+    const vmaKph = round2(speedMps * 3.6);
+    return vmaKph;
   }
+
+  async getOrEstimateVmaKph(userId: string): Promise<number> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`user ${userId} not found`);
+    }
+    const existing = await this.cardio.getPhysioValue(userId, 'VMA');
+    if (existing && existing > 0) {
+      return existing;
+    }
+
+    // 2) Sinon on tente une estimation via les rolling best 6'
+    const estimated = await this.estimateVmaFromRollingBests(userId);
+    if (!estimated) {
+      throw new BadRequestException("Impossible d'estimer la VMA : pas assez de données de course (rolling best 6').");
+    }
+
+    // 3) On enregistre la VMA estimée dans PhysioHistory
+    await this.cardio.createPhysioValue(userId, {
+      metric: 'VMA',
+      source: 'ESTIMATED',
+      value: estimated,
+    });
+
+    return estimated;
+  }
+
+  // private async getVmaCutoff(userId: string): Promise<Date | undefined> {
+  //   const last = await this.prisma.physioHistory.findFirst({
+  //     where: { userId, metric: 'VMA', source: 'ESTIMATED' },
+  //     orderBy: { createdAt: 'desc' },
+  //     select: { windowEnd: true, createdAt: true },
+  //   });
+  //   return last ? (last.windowEnd ?? last.createdAt) : undefined;
+  // }
+
+  // private async loadRollingBestsSince(userId: string, cutoff?: Date) {
+  //   return await this.prisma.activityRollingBest.findMany({
+  //     where: {
+  //       userId,
+  //       activity: {
+  //         is: {
+  //           ...(cutoff ? { dateUtc: { gt: cutoff } } : {}),
+  //           OR: [{ type: { not: 'VMA' } }, { type: null }],
+  //         },
+  //       },
+  //     },
+  //     include: { activity: { select: { dateUtc: true, type: true } } },
+  //     orderBy: { createdAt: 'desc' },
+  //   });
+  // }
+
+  // private pickBestCandidate(rows: ARBRow[]) {
+  //   let best: {
+  //     speedMs: number;
+  //     windowSec: 360 | 720;
+  //     startDate: Date;
+  //     startOffsetS: number;
+  //     endOffsetS: number;
+  //   } | null = null;
+
+  //   for (const r of rows) {
+  //     const cand360 =
+  //       r.speedMps360 != null
+  //         ? {
+  //           speedMs: Number(r.speedMps360),
+  //           windowSec: 360 as const,
+  //           startDate: r.activity.dateUtc,
+  //           startOffsetS: r.startOffsetS360!,
+  //           endOffsetS: r.endOffsetS360!,
+  //         }
+  //         : null;
+
+  //     const cand720 =
+  //       r.speedMps720 != null
+  //         ? {
+  //           speedMs: Number(r.speedMps720),
+  //           windowSec: 720 as const,
+  //           startDate: r.activity.dateUtc,
+  //           startOffsetS: r.startOffsetS720!,
+  //           endOffsetS: r.endOffsetS720!,
+  //         }
+  //         : null;
+
+  //     for (const c of [cand360, cand720]) {
+  //       if (!c) continue;
+  //       if (!best || c.speedMs > best.speedMs) best = c;
+  //     }
+  //   }
+  //   return best;
+  // }
+
+  // async estimateFromActivities(userId: string): Promise<VmaEstimate> {
+  //   const cutoff = await this.getVmaCutoff(userId);
+  //   const runs = await this.loadRollingBestsSince(userId, cutoff);
+  //   if (!runs.length) throw new NotFoundException('No activities');
+
+  //   const last = runs.pop();
+  //   const first = runs.shift();
+
+  //   const best = this.pickBestCandidate(runs);
+  //   if (!best) throw new NotFoundException('No activities');
+
+  //   const needVmaUser = !(await this.cardio.hasUserPhysio(userId, 'VMA'));
+  //   const needHrMaxUser = !(await this.cardio.hasUserPhysio(userId, 'FC_MAX'));
+  //   const needHrRestUser = !(await this.cardio.hasUserPhysio(userId, 'FC_REPOS'));
+  //   const needsSetup = needVmaUser || needHrMaxUser || needHrRestUser;
+
+  //   return {
+  //     vmaMps: best.speedMs,
+  //     vmaKph: mpsToKph(best.speedMs),
+  //     pacePerKm: kphToPaceStr(mpsToKph(best.speedMs)),
+  //     source: 'ESTIMATED',
+  //     confidence: 0.5,
+  //     firstRun: first?.activity?.dateUtc,
+  //     lastRun: last?.activity?.dateUtc,
+  //     runsCount: runs.length,
+  //     needsSetup,
+  //   };
+  // }
+
+  // async estimateAndPersist(userId: string): Promise<VmaEstimate> {
+  //   const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  //   if (!user) {
+  //     throw new NotFoundException();
+  //   }
+
+  //   const est = await this.estimateFromActivities(userId);
+  //   if (!est) {
+  //     throw new NotFoundException();
+  //   }
+  //   const estimation = await this.prisma.physioHistory.findFirst({
+  //     where: {
+  //       userId: userId,
+  //       metric: 'VMA',
+  //       windowStart: new Date(est.firstRun),
+  //       windowEnd: new Date(est.lastRun),
+  //     },
+  //   });
+  //   if (estimation) {
+  //     throw new BadRequestException('This VMA already exist', {
+  //       cause: new Error(),
+  //       description: `Date range ${estimation.windowStart} - ${estimation.windowEnd} already exists`,
+  //     });
+  //   }
+  //   await this.prisma.physioHistory.create({
+  //     data: {
+  //       userId: userId,
+  //       metric: 'VMA',
+  //       value: new Prisma.Decimal(mpsToKph(est.vmaMps)),
+  //       source: 'ESTIMATED',
+  //       runsCount: est.runsCount,
+  //       windowStart: new Date(est.firstRun),
+  //       windowEnd: new Date(est.lastRun),
+  //     },
+  //   });
+  //   return est;
+  // }
+
+  // async current(userId: string) {
+  //   const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  //   if (!user) {
+  //     throw new NotFoundException();
+  //   }
+  //   const cardio = await this.cardio.getPhysioValue(userId, 'VMA');
+  //   return {
+  //     VMA: cardio,
+  //   };
+  // }
 }

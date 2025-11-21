@@ -1,19 +1,22 @@
-import { Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Controller, Param, Post } from '@nestjs/common';
 import { VmaService } from './vma.service';
-import { VmaEstimateDto } from '@/shared/types/strava';
 
 @Controller('coach/vma')
 export class VmaController {
-  constructor(private readonly svc: VmaService) {}
+  constructor(private readonly svc: VmaService) { }
 
-  @Post('estimate/:userId')
-  estimateAndSave(@Param('userId') userId: string, @Query('force') force?: string): Promise<VmaEstimateDto> {
-    const doForce = force === 'true' || force === '1';
-    return this.svc.estimateAndPersist(userId, doForce);
+  // @Post('estimate/:userId')
+  // estimateAndSave(@Param('userId') userId: string): Promise<VmaEstimate> {
+  //   return this.svc.estimateAndPersist(userId);
+  // }
+
+  @Post(':userId')
+  async estimateFromActivities(@Param('userId') userId: string) {
+    return await this.svc.getOrEstimateVmaKph(userId);
   }
 
-  @Get('estimate/:userId')
-  estimateDry(@Param('userId') userId: string): Promise<VmaEstimateDto> {
-    return this.svc.currentOrEstimate(userId);
-  }
+  // @Get('current/:userId')
+  // current(@Param('userId') userId: string) {
+  //   return this.svc.current(userId);
+  // }
 }

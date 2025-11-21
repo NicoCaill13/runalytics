@@ -1,118 +1,493 @@
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 enum RunnerType {
-    PLEASURE
-    PROGRESS
-    COMPETITOR
+  PLEASURE
+  PROGRESS
+  COMPETITOR
 }
 
 enum CoachPersonality {
-    COOL
-    MODERATE
-    COMPET
+  COOL
+  MODERATE
+  COMPET
+}
+
+enum ValueSource {
+  ESTIMATED
+  USER
+}
+
+enum UnitSource {
+  METRIC
+  IMPERIAL
+}
+
+enum MetricSource {
+  VMA
+  FC_REPOS
+  FC_MAX
+  FC_RESERVE
+  HRR_ZONES
+  VMA_ZONES
+}
+
+enum HeartSource {
+  HRR
+  FC_MAX
+}
+
+enum ActivityType {
+  EF
+  EA
+  SEUIL
+  VMA
+  INDOOR
+}
+
+enum IntervalRun {
+  DEMICOOPER
+  COOPER
+}
+
+enum Provider {
+  STRAVA
+  GARMIN
+  COROS
+  POLAR
+  SUUNTO
+  APPLE_HEALTH
+  GOOGLE_HEALTH
+}
+
+enum TrainingGoalType {
+  THREE_K
+  FIVE_K
+  SEVEN_K
+  TEN_K
+  HALF_MARATHON
+  MARATHON
+  OTHER
+}
+
+enum TrainingGoalBehavior {
+  FINISH // juste terminer
+  PERFORMANCE // faire un chrono
+}
+
+enum PlannedSessionType {
+  EF
+  VMA
+  TEMPO
+  THRESHOLD
+  LONG_RUN
+  RECOVERY
+  OTHER
+}
+
+enum PlannedSessionStatus {
+  PLANNED
+  DONE
+  CANCELLED
+  MOVED
+  MISSED
+}
+
+enum PlannedSessionSource {
+  SYSTEM
+  USER
+}
+
+enum CoachMessageTone {
+  INFO
+  WARNING
+  CRITICAL
+  PRAISE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum IntensityTag {
+  EASY // typiquement EF correcte
+  MODERATE
+  HARD
+  VERY_HARD
+}
+
+model ProviderAccount {
+  id                String    @id @default(cuid())
+  userId            String
+  provider          Provider
+  providerUserId    String // ex: athleteId Strava, userId Garmin...
+  scope             String? // scopes OAuth (ex: "activity:read_all,profile:read_all")
+  isPremium         Boolean?
+  isActive          Boolean?
+  hasHeartRateData  Boolean?  @default(false)
+  heartRateCoverage Float?
+  heartRateStatus   String?
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         DateTime?
+  profile           Json? // dump du profil provider (facultatif)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities Activity[]
+
+  @@unique([provider, providerUserId])
+  @@index([userId, provider])
 }
 
 model User {
-    id           String  @id @default(cuid())
-    athleteId    Int?    @unique
-    userName     String?
-    accessToken  String?
-    refreshToken String?
+  id        String   @id @default(cuid())
+  userName  String
+  firstName String?
+  lastName  String?
+  weight    Int?
+  email     String
+  password  String
+  gender    Gender
+  birthDay  DateTime
 
-    hasHeartRateData  Boolean? @default(false)
-    heartRateCoverage Float?
-    heartRateStatus   String?
+  measurementUnit UnitSource  @default(METRIC)
+  heartUnit       HeartSource @default(HRR)
 
-    sex             String? // 'M' | 'F'
-    profile         String? // large
-    profileMedium   String?
-    city            String?
-    state           String?
-    country         String?
-    measurementPref String? // 'meters' | 'feet'
-    isPremium       Boolean? // Strava Summit/Premium
+  runnerType       RunnerType?      @default(PLEASURE)
+  coachPersonality CoachPersonality @default(MODERATE)
 
-    fcm         Int?
-    fcrepos     Int?
-    zones       Json?
-    hrUpdatedAt DateTime?
+  age Int?
 
-    vmaMps       Float?
-    vmaKph       Float?
-    vmaUpdatedAt DateTime?
+  lastSyncedAt   DateTime?
+  lastActivityAt DateTime?
 
-    // Profil coureur & coach
-    runnerType       RunnerType?
-    coachPersonality CoachPersonality @default(MODERATE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    age Int?
+  activities       Activity[]
+  WeeklyFeatures   WeeklyFeatures[]
+  physioHistory    PhysioHistory[]
+  providerAccounts ProviderAccount[]
 
-    expiresAt DateTime?
+  trainingGoals    TrainingGoal[]
+  plannedSessions  PlannedSession[]
+  coachMessages    CoachMessage[]
+  activityAnalyses ActivityAnalysis[]
 
-    lastSyncedAt   DateTime?
-    lastActivityAt DateTime?
+  @@unique([email])
+}
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+model PhysioHistory {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    activities     Activity[]
-    WeeklyFeatures WeeklyFeatures[]
+  metric MetricSource
+  value  Decimal
+  source ValueSource
+
+  windowStart DateTime?
+  windowEnd   DateTime?
+  runsCount   Int?
+  note        String?
+  payload     Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, metric, createdAt])
 }
 
 model Activity {
-    id          String   @id @default(cuid())
-    userId      String
-    providerId  String   @unique // id Strava
-    dateUtc     DateTime
-    dateLocal   DateTime
-    distanceM   Int
-    movingTimeS Int
-    elevGainM   Int
-    sport       String
-    avgHr       Int?
-    maxHr       Int?
-    avgCadSpm   Int?
-    avgPaceSpKm Int?
-    hrZone      String?
-    load        Float?
-    createdAt   DateTime @default(now())
-    user        User     @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String
 
-    @@index([userId, dateUtc])
+  provider           Provider
+  providerActivityId String
+  externalId         String?
+
+  name String
+
+  accountId String?
+  account   ProviderAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  startDate      DateTime // UTC
+  startDateLocal DateTime
+  timezone       String?
+  utcOffset      Int? // secondes
+
+  distanceM      Float // 12100.9
+  movingTimeSec  Int // 4861
+  elapsedTimeSec Int
+  totalElevGainM Float?
+
+  avgSpeedMps     Float?
+  maxSpeedMps     Float?
+  avgPaceSecPerKm Float? // dérivé pour simplifier le front
+
+  hasHeartrate Boolean
+  avgHr        Int?
+  maxHr        Int?
+  avgCadence   Float?
+
+  sufferScore Float? // score du provider (Strava, etc.)
+
+  startLat Float?
+  startLng Float?
+  endLat   Float?
+  endLng   Float?
+  polyline String?
+
+  load                Float?
+  type                ActivityType?
+  createdAt           DateTime              @default(now())
+  user                User                  @relation(fields: [userId], references: [id])
+  ActivityRollingBest ActivityRollingBest[]
+  analysis            ActivityAnalysis?
+  goals               ActivityGoal[]
+  coachMessages       CoachMessage[]
+  stream              ActivityStream?
+  plannedSessionId    String?               @unique
+  plannedSession      PlannedSession?       @relation(fields: [plannedSessionId], references: [id])
+
+  @@unique([userId, provider, externalId])
+  @@index([userId, startDate])
+}
+
+model ActivityStream {
+  id         String   @id @default(cuid())
+  activityId String   @unique
+  activity   Activity @relation(fields: [activityId], references: [id])
+
+  source Provider // STRAVA, GOOGLE_... (au cas où on les mélange un jour)
+
+  // Brut venant du provider, mais nettoyé
+  timeSec   Json // [0,1,2,...,4861]
+  distanceM Json // [0.0, 1.4, 3.7, ... , 12100.9]
+  altitudeM Json? // [...]
+  heartRate Json? // [93, 93, 95, ...]
+  cadence   Json? // si dispo plus tard
+  // éventuellement velocity_smooth, etc, si provider le fournit
+
+  // Option : champ “simplifié” (downsample)
+  simplified Json? // pour les graphes (ex: 1 point / 5s)
+
+  createdAt DateTime @default(now())
+}
+
+model TrainingGoal {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type     TrainingGoalType
+  behavior TrainingGoalBehavior @default(FINISH)
+
+  label         String? // ex: "10 km du 15 mars"
+  targetDate    DateTime
+  prepStartDate DateTime
+
+  // Pour objectifs génériques (Au cas où tu gères aussi d'autres distances plus tard)
+  targetDistanceM Int? // ex: 5000, 7000, 10000
+  targetTimeSec   Int? // chrono cible si behavior = PERFORMANCE
+
+  // Hiérarchie (5K / 7K comme sous-objectifs du 10K)
+  parentGoalId String?
+  parentGoal   TrainingGoal?  @relation("GoalHierarchy", fields: [parentGoalId], references: [id])
+  subGoals     TrainingGoal[] @relation("GoalHierarchy")
+
+  isPrimary Boolean  @default(false) // objectif principal
+  active    Boolean  @default(true)
+  completed Boolean  @default(false)
+  success   Boolean?
+
+  // Relations
+  plannedSessions PlannedSession[]
+  activityLinks   ActivityGoal[]
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  coachMessages CoachMessage[]
+
+  @@index([userId])
+}
+
+model ActivityGoal {
+  id         String @id @default(cuid())
+  activityId String
+  goalId     String
+
+  activity Activity     @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  goal     TrainingGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  isPrimary Boolean @default(false) // activité principale pour cet objectif ?
+  note      String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([activityId, goalId])
+  @@index([goalId])
+}
+
+model PlannedSession {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  goalId String?
+  goal   TrainingGoal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  // On raisonne en date locale pour l’UX (comme ton Activity.dateLocal)
+  dateLocal DateTime
+
+  type  PlannedSessionType
+  label String? // ex: "EF 45' tranquille", "VMA 8x400m"
+  notes String? // texte libre (coach / user)
+
+  plannedDistanceM Int?
+  plannedDurationS Int?
+  plannedLoad      Float?
+  intensityHint    String? // ex: "Z1-Z2", "Z4 8x400m (90% VMA)"
+
+  status PlannedSessionStatus @default(PLANNED)
+  source PlannedSessionSource @default(SYSTEM)
+
+  // Si une activité réelle a "rempli" cette séance
+  activity      Activity?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  coachMessages CoachMessage[]
+
+  @@index([userId, dateLocal])
+  @@index([goalId])
+}
+
+model ActivityRollingBest {
+  id String @id @default(cuid())
+
+  // relations
+  activityId String   @unique
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  userId     String
+
+  // Fenêtre 360 s (6')
+  startOffsetS360 Int?
+  endOffsetS360   Int?
+  distanceM360    Int?
+  speedMps360     Decimal?
+  avgHr360        Int?
+  dPlusM360       Int?
+
+  // Fenêtre 720 s (12')
+  startOffsetS720 Int?
+  endOffsetS720   Int?
+  distanceM720    Int?
+  speedMps720     Decimal?
+  avgHr720        Int?
+  dPlusM720       Int?
+
+  averageSpeedMps Decimal?
+  averageSpeedKmh Decimal?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([activityId])
+}
+
+model ActivityAnalysis {
+  id         String   @id @default(cuid())
+  activityId String   @unique
+  activity   Activity @relation(fields: [activityId], references: [id])
+
+  // Rappel utile pour requêtes sans joindre Activity
+  durationSec Int
+  distanceM   Float
+
+  // HR zones (calculées avec tes zones perso, HRR, etc.)
+  hrZoneDurationsSec Json // { "Z1": 600, "Z2": 2400, "Z3": 1500, ... }
+  hrZonePercentages  Json // { "Z1": 0.12, "Z2": 0.55, ... }
+
+  // Cœur de la logique "trop costaud / cool"
+  timeBelowZ2Sec  Int
+  timeInZ2Sec     Int
+  timeAboveZ2Sec  Int // Z3+ pour toi
+  fractionAboveZ2 Float // timeAboveZ2Sec / durationSec
+
+  // Indice global d’intensité (0–100 ou 0–1)
+  intensityScore Float // ton “training load maison” ou TRIMP-like
+  intensityTag   IntensityTag
+
+  // Cardio drift / décorrélation FC - allure (utile pour dire “EF dégrade”)
+  cardiacDriftPct Float? // FC moy 2ème moitié vs 1ère, à vitesse ~constante
+
+  // Flags coaching
+  wasEasyPlanned    Boolean // si séance prévue = EF
+  wasTooHardForEasy Boolean // séance marquée EF mais réellement MOD/HARD
+  isRecoveryWorthy  Boolean // utilisée par l’engine pour adapter J+1
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
 }
 
 model WeeklyFeatures {
-    id         String   @id @default(cuid())
-    userId     String
-    year       Int // ex: 2025
-    weekNumber Int // ex: 2
-    weekStart  DateTime // Lundi 00:00:00 (UTC)
+  id         String   @id @default(cuid())
+  userId     String
+  year       Int // ex: 2025
+  weekNumber Int // ex: 2
+  weekStart  DateTime // Lundi 00:00:00 (UTC)
 
-    runsCount   Int
-    daysActive  Int
-    distanceKm  Float
-    movingTimeH Float
-    elevGainM   Int
+  runsCount   Int
+  daysActive  Int
+  distanceKm  Float
+  movingTimeH Float
+  elevGainM   Int
 
-    loadWeek   Float // Σ load
-    monotony   Float? // mean(dayLoads)/std(dayLoads)
-    strain     Float? // loadWeek * monotony
-    acwr       Float? // loadWeek / mean(loadWeek des 4 sem précédentes)
-    maxDayLoad Float? // AU
-    max48hLoad Float?
+  loadWeek   Float // Σ load
+  monotony   Float? // mean(dayLoads)/std(dayLoads)
+  strain     Float? // loadWeek * monotony
+  acwr       Float? // loadWeek / mean(loadWeek des 4 sem précédentes)
+  maxDayLoad Float? // AU
+  max48hLoad Float?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
-    @@unique([userId, year, weekNumber])
-    @@index([userId, weekStart])
+  @@unique([userId, year, weekNumber])
+  @@index([userId, weekStart])
+}
+
+model CoachMessage {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  goalId           String?
+  goal             TrainingGoal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  activityId       String?
+  activity         Activity?       @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  plannedSessionId String?
+  plannedSession   PlannedSession? @relation(fields: [plannedSessionId], references: [id], onDelete: SetNull)
+
+  tone  CoachMessageTone @default(INFO)
+  title String
+  body  String
+
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  @@index([userId, createdAt])
 }
